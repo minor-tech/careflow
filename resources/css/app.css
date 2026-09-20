@@ -1,0 +1,529 @@
+@tailwind base;
+@tailwind components;
+
+/*
+ * The signed-in dashboards (layouts/app.blade.php and the pieces it is built
+ * from). Plain CSS between the Tailwind layers on purpose: it is never purged,
+ * so Blade can build modifier names (cf-dot--{{ $tone }}), and utilities that
+ * come after it can still override it. The public site does not use any of it.
+ */
+.cf-shell {
+    display: flex;
+    width: 100%;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+.cf-main {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 0%;
+    flex-direction: column;
+}
+
+/* Sidebar: an off-canvas drawer below 1024px, a fixed column above it. */
+.cf-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    display: flex;
+    width: 264px;
+    min-width: 264px;
+    max-width: 85vw;
+    flex-direction: column;
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 24px 16px;
+    border-right: 1px solid var(--border-strong);
+    background: #fff;
+    visibility: hidden;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease, visibility 0.2s;
+}
+
+.cf-sidebar.is-open {
+    visibility: visible;
+    transform: none;
+    box-shadow: 0 8px 32px rgba(11, 46, 41, 0.18);
+}
+
+@media (min-width: 1024px) {
+    .cf-sidebar.is-open {
+        box-shadow: none;
+    }
+
+    .cf-sidebar {
+        position: sticky;
+        top: 0;
+        z-index: auto;
+        height: 100vh;
+        max-width: none;
+        visibility: visible;
+        transform: none;
+    }
+
+    .cf-backdrop,
+    .cf-menu-btn {
+        display: none !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cf-sidebar {
+        transition: none;
+    }
+}
+
+.cf-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: rgba(11, 46, 41, 0.45);
+}
+
+.cf-sidebar__brand { display: flex; align-items: center; gap: 11px; padding: 4px 8px 22px 8px; text-decoration: none; }
+.cf-sidebar__logo { display: flex; width: 34px; height: 34px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 10px; color: #fff; }
+.cf-sidebar__logo .cf-icon { width: 20px; height: 20px; stroke-width: 2.4; }
+.cf-sidebar__brand-name { font-size: 17px; font-weight: 700; color: var(--text); }
+.cf-sidebar__facility-name { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-muted); }
+
+.cf-nav-group { margin-top: 18px; }
+.cf-nav-group__label { padding: 0 14px 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); }
+.cf-nav-link { display: flex; min-height: 44px; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; font-size: 14px; font-weight: 500; color: #55635F; text-decoration: none; transition: background-color 0.15s ease, color 0.15s ease; }
+.cf-nav-link:hover { background: var(--primary-tint-soft); color: var(--primary); }
+.cf-nav-link.is-active { background: var(--primary-tint); color: var(--primary); font-weight: 700; }
+
+.cf-sidebar__spacer { flex-grow: 1; min-height: 24px; }
+.cf-help-card { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 16px; border-radius: 14px; background: var(--primary-tint-soft); text-decoration: none; }
+.cf-help-card:hover { background: var(--primary-tint); }
+.cf-help-card .cf-icon { color: var(--primary); }
+.cf-help-card__title { font-size: 13px; font-weight: 700; color: var(--primary); }
+.cf-help-card__subtitle { font-size: 12px; color: #5C7A70; }
+
+.cf-user-card { display: flex; align-items: center; gap: 10px; padding-top: 16px; border-top: 1px solid var(--border-strong); }
+.cf-user-card__who { display: block; min-width: 0; flex: 1 1 0%; text-decoration: none; }
+.cf-user-card__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 600; color: var(--text); }
+.cf-user-card__role { font-size: 12px; color: var(--text-muted); }
+.cf-user-card .cf-icon-btn { color: var(--text-muted); }
+.cf-avatar { display: flex; width: 36px; height: 36px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 999px; color: #fff; font-size: 13px; font-weight: 700; }
+
+.cf-topbar { display: flex; height: 68px; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--border-strong); background: #fff; }
+.cf-topbar__lead { display: flex; min-width: 0; align-items: center; gap: 8px; }
+.cf-topbar__crumb { font-size: 12px; color: var(--text-muted); }
+.cf-topbar__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 700; color: var(--text); }
+.cf-topbar__actions { display: flex; flex-shrink: 0; align-items: center; gap: 6px; }
+.cf-topbar__divider { width: 1px; height: 24px; margin: 0 8px; background: var(--border-strong); }
+.cf-topbar__user { display: none; }
+.cf-topbar__user-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.cf-topbar__user-role { font-size: 11.5px; color: var(--text-muted); }
+
+@media (min-width: 640px) {
+    .cf-topbar { padding: 0 32px; }
+    .cf-topbar__user { display: block; }
+}
+
+.cf-icon-btn { position: relative; display: flex; width: 44px; height: 44px; align-items: center; justify-content: center; border: none; border-radius: 10px; background: none; color: var(--text); cursor: pointer; }
+.cf-icon-btn:hover { background: #F0F2F1; }
+
+.cf-content { box-sizing: border-box; width: 100%; flex-grow: 1; padding: 24px 16px; }
+
+@media (min-width: 1024px) {
+    .cf-content { padding: 32px 40px; }
+}
+
+.cf-icon { width: 20px; height: 20px; flex-shrink: 0; }
+
+/* A plain white panel: forms, settings, and other content that is not a list. */
+.cf-card { padding: 24px; border-radius: 20px; background: #fff; box-shadow: 0 2px 14px rgba(11, 46, 41, 0.05); }
+
+/* Stat card: a pastel tile with a solid icon square and one big number. */
+.cf-stat-card { display: flex; align-items: center; gap: 16px; padding: 22px; border-radius: 20px; background: var(--stat-tint, var(--primary-tint)); color: inherit; text-decoration: none; }
+a.cf-stat-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+a.cf-stat-card:hover { box-shadow: 0 8px 24px rgba(11, 46, 41, 0.1); }
+@media (prefers-reduced-motion: no-preference) {
+    a.cf-stat-card:hover { transform: translateY(-1px); }
+}
+.cf-stat-card__icon { display: flex; width: 48px; height: 48px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 14px; background: var(--stat-solid, var(--primary-gloss)); color: #fff; }
+.cf-stat-card__icon .cf-icon { width: 24px; height: 24px; }
+/* Three tallies side by side on a phone: the icon sits above the number. */
+@media (max-width: 639px) {
+    .cf-stat-card--stacked { flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px; }
+    .cf-stat-card--stacked .cf-stat-card__icon { width: 36px; height: 36px; border-radius: 10px; }
+    .cf-stat-card--stacked .cf-stat-card__icon .cf-icon { width: 18px; height: 18px; }
+    .cf-stat-card--stacked .cf-stat-card__number { font-size: 22px; }
+    .cf-stat-card--stacked .cf-stat-card__label { font-size: 12.5px; }
+}
+.cf-stat-card__number { font-size: 28px; font-weight: 700; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+.cf-stat-card__label { margin-top: 4px; font-size: 13.5px; color: rgba(11, 46, 41, 0.7); }
+.cf-stat-card--primary { --stat-tint: var(--primary-tint); --stat-solid: var(--primary-gloss); }
+.cf-stat-card--primary .cf-stat-card__icon { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+.cf-stat-card--blue { --stat-tint: var(--accent-blue-tint); --stat-solid: var(--accent-blue); }
+.cf-stat-card--gold { --stat-tint: var(--accent-gold-tint); --stat-solid: var(--accent-gold); }
+.cf-stat-card--clay { --stat-tint: var(--accent-clay-tint); --stat-solid: var(--accent-clay); }
+.cf-stat-card--slate { --stat-tint: var(--accent-slate-tint); --stat-solid: var(--accent-slate); }
+.cf-stat-card--sage { --stat-tint: var(--accent-sage-tint); --stat-solid: var(--accent-sage); }
+
+/* List card: a title, then rows that each start with a coloured dot. */
+.cf-list-card { overflow: hidden; border-radius: 20px; background: #fff; box-shadow: 0 2px 14px rgba(11, 46, 41, 0.05); }
+.cf-list-card__title { padding: 20px 24px 4px; font-size: 14.5px; font-weight: 700; color: var(--text); }
+.cf-list-card__empty { padding: 20px 24px; font-size: 14px; color: rgba(11, 46, 41, 0.7); }
+.cf-list-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 15px 16px; border-bottom: 1px solid var(--border); }
+.cf-list-row:last-child { border-bottom: none; }
+.cf-list-row:hover { background: #FAFBFA; }
+.cf-list-row__main { min-width: 0; flex: 1 1 14rem; }
+.cf-list-row__side { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 14px; }
+@media (min-width: 640px) {
+    .cf-list-row { padding: 15px 24px; }
+}
+
+/* A list card whose rows open menus: it must not clip them, so the corners are rounded by the rows. */
+.cf-list-card--open { overflow: visible; }
+.cf-list-card--open > .cf-list-row:first-child { border-radius: 20px 20px 0 0; }
+.cf-list-card--open > .cf-list-row:last-child { border-radius: 0 0 20px 20px; }
+.cf-list-card--open > .cf-list-row:only-child { border-radius: 20px; }
+
+.cf-dot { display: inline-block; width: 8px; height: 8px; flex-shrink: 0; margin-right: 4px; border-radius: 999px; background: var(--dot, var(--accent-slate)); }
+.cf-dot--primary { --dot: var(--primary-gloss); }
+.cf-dot--blue { --dot: var(--accent-blue); }
+.cf-dot--gold { --dot: var(--accent-gold); }
+.cf-dot--clay { --dot: var(--accent-clay); }
+.cf-dot--slate { --dot: var(--accent-slate); }
+.cf-dot--sage { --dot: var(--accent-sage); }
+.cf-dot--danger { --dot: var(--danger); }
+/* The same dot, named after a status-pill tone. */
+.cf-dot--ok { --dot: var(--status-ok-dot); }
+.cf-dot--wait { --dot: var(--accent-gold); }
+.cf-dot--info { --dot: var(--accent-blue); }
+.cf-dot--muted { --dot: var(--accent-slate); }
+
+/* People: one card each, stacked, with an avatar circle. */
+.cf-person-list { display: flex; flex-direction: column; gap: 12px; }
+.cf-person-card { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 16px 20px; border-radius: 16px; background: #fff; box-shadow: 0 2px 12px rgba(11, 46, 41, 0.06); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.cf-person-card:hover { box-shadow: 0 6px 20px rgba(11, 46, 41, 0.09); }
+@media (prefers-reduced-motion: no-preference) {
+    .cf-person-card:hover { transform: translateY(-1px); }
+}
+.cf-person-card__who { min-width: 0; flex: 1 1 14rem; }
+.cf-person-card__role { min-width: 8rem; }
+.cf-person-card__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+@media (min-width: 1024px) {
+    /* Fixed columns so the role, status and buttons line up from one card to the next. */
+    .cf-person-card__role { width: 10rem; flex: none; }
+    .cf-person-card__status { width: 8.5rem; flex: none; }
+    .cf-person-card__actions { width: 14rem; flex: none; justify-content: flex-end; }
+}
+.cf-person-avatar { display: flex; width: 46px; height: 46px; flex-shrink: 0; align-items: center; justify-content: center; overflow: hidden; border-radius: 999px; background: #EDEFEF; color: var(--text-faint); }
+.cf-person-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Status pill: the one look for every status in the app. */
+.cf-status-pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 999px; background: var(--pill-bg); color: var(--pill-text); font-size: 13px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.cf-status-pill::before { content: ''; width: 8px; height: 8px; flex-shrink: 0; border-radius: 999px; background: var(--pill-dot); }
+.cf-status-pill--sm { gap: 6px; padding: 4px 12px; font-size: 12.5px; }
+.cf-status-pill--sm::before { width: 6px; height: 6px; }
+.cf-status-pill--ok { --pill-bg: var(--status-ok-bg); --pill-dot: var(--status-ok-dot); --pill-text: var(--status-ok-text); }
+.cf-status-pill--wait { --pill-bg: var(--accent-gold-tint); --pill-dot: var(--accent-gold); --pill-text: #7A5A2E; }
+.cf-status-pill--info { --pill-bg: var(--accent-blue-tint); --pill-dot: var(--accent-blue); --pill-text: #345A7C; }
+.cf-status-pill--danger { --pill-bg: #F8E9E8; --pill-dot: var(--danger); --pill-text: #8E3530; }
+.cf-status-pill--muted { --pill-bg: var(--accent-slate-tint); --pill-dot: var(--accent-slate); --pill-text: #4F5C61; }
+
+@tailwind utilities;
+
+:root {
+    --bg: #FFFFFF; /* the page is white: cards are told apart by their shadow, never by a gray page */
+    --text: #0B2E29;
+    --text-muted: #8A9895;
+    --text-faint: #A6B0AD; /* sidebar section labels */
+    --border: #EEF1F0;
+    --border-strong: #E8ECEA;
+
+    /* The flat teal is for TEXT and icon strokes only. Solid shapes (logo, avatars, button hover) use the gloss. */
+    --primary: #1E6B5C;
+    --primary-gloss: linear-gradient(135deg, #3EA890 0%, #1E6B5C 100%);
+    --primary-tint: #E4F5E9; /* active nav pill, default button fill */
+    --primary-tint-soft: #EAF7EE; /* hover-only tint, lighter than active */
+
+    --accent-blue: #4E7FA8;
+    --accent-blue-tint: #E8EFF4;
+    --accent-gold: #CE9E48;
+    --accent-gold-tint: #FBF2E0;
+    --accent-clay: #BD8161;
+    --accent-clay-tint: #F5EAE4;
+    --accent-slate: #6C7A80;
+    --accent-slate-tint: #EDEFEF;
+    --accent-sage: #7EA184;
+    --accent-sage-tint: #EDF3EE;
+
+    --status-ok-bg: #EDF3EE;
+    --status-ok-dot: #7EA184;
+    --status-ok-text: #4C7A5A;
+    --status-wait: #CE9E48;
+    --danger: #B4423C;
+
+    /* Public site only (never used in the dashboards). */
+    --tint-light: #E7F0EE;
+    --tint-mid: #CFE0D9;
+
+    /* The public site's icon circles and card top borders; the primary stands in for teal. */
+    --accent-teal: var(--primary);
+}
+
+body {
+    background: var(--bg);
+}
+
+/* Every solid-filled element in the primary colour: the gradient plus a 1px inner highlight for the shine. */
+.gloss-fill {
+    background: var(--primary-gloss);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/*
+ * The one typeface for the whole product: Manrope, self-hosted (variable weight,
+ * latin subset). It ships a real tabular-figures feature, so the queue-number
+ * treatment (.numeral, tabular-nums) keeps working unchanged. The template's own
+ * Gordita is not used: its font files were not part of the download.
+ */
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    font-weight: 200 800;
+    font-display: swap;
+    src: url('/fonts/manrope/manrope-latin-var.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+[x-cloak] {
+    display: none !important;
+}
+
+@layer base {
+    body {
+        @apply font-sans text-ink antialiased;
+    }
+
+    /* Headings: bold, tight, balanced. Sizes come from the utilities on each heading. */
+    h1, h2, h3, h4, h5, h6 {
+        font-weight: 700;
+        line-height: 1.2;
+        letter-spacing: -0.015em;
+        text-wrap: balance;
+    }
+
+    /* Visible keyboard focus everywhere. */
+    :focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
+}
+
+@layer components {
+    /* Queue numbers, wait-time counters, staff counts: the numbers are the product. */
+    .numeral {
+        @apply text-2xl font-bold;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .field-input {
+        @apply block min-h-11 w-full rounded-md border-line bg-white text-ink placeholder:text-ink/40 focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-line/40 disabled:text-ink/50;
+    }
+
+    .link {
+        @apply rounded-sm font-medium text-primary underline-offset-2 hover:underline;
+    }
+
+    /* The one transition in the app: a wizard step easing in. */
+    .step-enter {
+        animation: step-enter 180ms ease-out;
+    }
+
+    /*
+     * The three buttons, used for every button and button-styled link in the app.
+     * Light fill by default that goes solid glossy teal on hover (.btn-primary),
+     * an outline that fills with the soft tint (.btn-outline), and a red outline
+     * that fills solid red (.btn-danger). All three share one outer size: the
+     * outlines shave the 1.5px border off their padding.
+     */
+    .btn-primary,
+    .btn-outline,
+    .btn-danger {
+        --btn-py: 12px;
+        --btn-px: 24px;
+        display: inline-flex;
+        min-height: 2.75rem;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        border-radius: 999px;
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1.25;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .btn-primary {
+        padding: var(--btn-py) var(--btn-px);
+        border: none;
+        background: var(--primary-tint);
+        color: var(--primary);
+    }
+
+    .btn-outline,
+    .btn-danger {
+        padding: calc(var(--btn-py) - 1.5px) calc(var(--btn-px) - 1.5px);
+        border: 1.5px solid var(--btn-color);
+        background: transparent;
+        color: var(--btn-color);
+    }
+
+    .btn-outline {
+        --btn-color: var(--primary);
+    }
+
+    .btn-danger {
+        --btn-color: var(--danger);
+    }
+
+    /* Compact, for buttons inside dense rows. Still a 44px touch target. */
+    .btn-sm {
+        --btn-py: 9px;
+        --btn-px: 20px;
+        font-size: 0.875rem;
+    }
+
+    .btn-primary:disabled,
+    .btn-outline:disabled,
+    .btn-danger:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        background: var(--primary-gloss);
+        color: #fff;
+        box-shadow: 0 4px 14px rgba(30, 94, 99, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+
+    .btn-outline:hover:not(:disabled) {
+        background: var(--primary-tint-soft);
+    }
+
+    .btn-danger:hover:not(:disabled) {
+        background: var(--danger);
+        color: #fff;
+    }
+
+    /* On a glossy teal surface the hover gloss would vanish into it, so the primary button goes white there instead. */
+    .gloss-fill .btn-primary:hover:not(:disabled) {
+        background: #fff;
+        color: var(--primary);
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        .btn-primary:hover:not(:disabled),
+        .btn-outline:hover:not(:disabled),
+        .btn-danger:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+    }
+
+    /* The hover treatment shared by cards and nav links: a 1px lift and a deeper shadow. */
+    .card-lift {
+        @apply transition duration-200 hover:shadow-card-hover motion-safe:hover:-translate-y-px;
+    }
+
+    /* Public-site card: 16px radius, shadow instead of a border. */
+    .card-soft {
+        @apply card-lift rounded-2xl bg-white shadow-card;
+    }
+
+    /*
+     * A card with a coloured top border that says what kind of content it holds.
+     * Colour it with a modifier (--teal, --amber, --clay, --sage, --slate) or set
+     * --accent-color inline; with neither it is CareFlow teal.
+     */
+    .card-accent {
+        padding: 24px;
+        border-top: 4px solid var(--accent-color, var(--primary));
+        border-radius: 16px;
+        background: white;
+        box-shadow: 0 2px 12px rgba(11, 46, 41, 0.06);
+    }
+
+    /* The public site's type scale: a confident jump from body text to headline. */
+    .display-hero {
+        font-size: clamp(2.75rem, 1.6rem + 5vw, 4.5rem);
+        font-weight: 800;
+        line-height: 1.138;
+        letter-spacing: -0.03em;
+    }
+
+    .display-section {
+        font-size: clamp(2rem, 1.3rem + 3vw, 3rem);
+        font-weight: 800;
+        line-height: 1.15;
+        letter-spacing: -0.025em;
+    }
+
+    .title-card {
+        font-size: 1.375rem;
+        line-height: 1.25;
+    }
+
+    .badge-section {
+        @apply inline-block rounded-full bg-tint-light px-4 py-1.5 text-[13px] font-semibold tracking-[0.02em] text-primary;
+    }
+
+    .icon-badge {
+        @apply flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white sm:h-16 sm:w-16;
+    }
+
+    .site-nav-link {
+        @apply inline-block rounded-sm px-1 py-2 text-base font-medium text-ink transition duration-200 hover:text-primary motion-safe:hover:-translate-y-px;
+    }
+
+    .site-section {
+        @apply px-4 py-14 lg:py-28;
+    }
+}
+
+/*
+ * The accent modifiers sit outside @layer components on purpose: Blade builds the
+ * class name (card-accent--{{ $accent }}), which Tailwind's scanner can't see, so
+ * inside the layer four of the five would be purged from the build.
+ */
+.card-accent--teal { --accent-color: var(--accent-teal); }
+.card-accent--blue { --accent-color: var(--accent-blue); }
+.card-accent--gold { --accent-color: var(--accent-gold); }
+.card-accent--clay { --accent-color: var(--accent-clay); }
+.card-accent--sage { --accent-color: var(--accent-sage); }
+.card-accent--slate { --accent-color: var(--accent-slate); }
+
+html {
+    scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+}
+
+@keyframes step-enter {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .step-enter {
+        animation: none;
+    }
+}
