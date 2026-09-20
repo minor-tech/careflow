@@ -46,9 +46,9 @@ export default {
                 'card-hover': '0 8px 24px rgba(11, 46, 41, 0.10)',
                 cta: '0 4px 14px rgba(30, 107, 92, 0.25)',
             },
-            // One typeface everywhere (guest site and dashboards); see @font-face in app.css.
+            // One typeface everywhere (guest site and dashboards): Google Sans, loaded in layouts/head.blade.php.
             fontFamily: {
-                sans: ['Manrope', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', ...defaultTheme.fontFamily.sans],
+                sans: ['"Google Sans"', '-apple-system', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
             },
         },
     },

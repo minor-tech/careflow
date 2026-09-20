@@ -316,12 +316,46 @@ Alpine.data('mapPicker', ({ lat = null, lng = null } = {}) => {
     };
 });
 
+// The staff forms: a doctor can be given a specialty, chosen from the services of
+// the department they work in. The choice is only offered for a doctor, and only
+// while their department has services; changing department clears it.
+Alpine.data('staffSpecialty', ({ role = '', department = '', service = '', services = {} }) => ({
+    role,
+    department,
+    service,
+
+    get options() {
+        return services[this.department] ?? [];
+    },
+
+    get offersSpecialty() {
+        return this.role === 'doctor' && this.options.length > 0;
+    },
+}));
+
 // Front-desk patient registration. As the phone number is typed, ask the server
 // whether this facility already has that patient and, if so, fill in what is
 // on record. Only empty fields are filled: anything already typed is left
 // alone. The submit guard stops a double tap creating a second visit.
-Alpine.data('patientRegistration', ({ lookupUrl, phone = '', name = '', dob = '', gender = '' }) => {
+//
+// Where the chosen department gives each patient their own doctor, the ranked
+// doctors on duty are fetched and listed, with the shortest line marked and
+// selected. That is only a suggestion: any listed doctor can be picked, and
+// the button names the doctor the patient is about to be assigned to.
+Alpine.data('patientRegistration', ({
+    lookupUrl,
+    doctorsUrl,
+    assignmentDepartments = [],
+    phone = '',
+    name = '',
+    dob = '',
+    gender = '',
+    departmentId = '',
+    serviceId = '',
+    doctorId = '',
+}) => {
     let request = null;
+    let doctorsRequest = null;
 
     return {
         phone: phone ?? '',
@@ -330,6 +364,90 @@ Alpine.data('patientRegistration', ({ lookupUrl, phone = '', name = '', dob = ''
         gender: gender ?? '',
         knownAs: null,
         submitting: false,
+        departmentId: departmentId ?? '',
+        serviceId: serviceId ?? '',
+        doctorId: doctorId ?? '',
+        requiresDoctor: false,
+        services: [],
+        doctors: [],
+        doctorsError: false,
+
+        init() {
+            this.loadDoctors();
+        },
+
+        get chosenDoctor() {
+            return this.doctors.find((doctor) => String(doctor.id) === String(this.doctorId)) ?? null;
+        },
+
+        get submitLabel() {
+            if (! this.requiresDoctor) {
+                return 'Register patient';
+            }
+
+            return this.chosenDoctor ? `Assign ${this.chosenDoctor.name} and register` : 'Choose a doctor to continue';
+        },
+
+        // How busy a doctor's line is, as a colour: plenty of room, getting long, long.
+        loadDot(waiting) {
+            return waiting <= 5 ? 'cf-dot--ok' : (waiting <= 10 ? 'cf-dot--wait' : 'cf-dot--clay');
+        },
+
+        departmentChanged() {
+            this.serviceId = '';
+            this.doctorId = '';
+            this.loadDoctors();
+        },
+
+        async loadDoctors() {
+            doctorsRequest?.abort();
+            this.doctorsError = false;
+
+            if (! assignmentDepartments.includes(Number(this.departmentId))) {
+                this.requiresDoctor = false;
+                this.services = [];
+                this.doctors = [];
+                this.doctorId = '';
+
+                return;
+            }
+
+            doctorsRequest = new AbortController();
+
+            const query = new URLSearchParams({ department_id: this.departmentId });
+
+            if (this.serviceId) {
+                query.set('service_id', this.serviceId);
+            }
+
+            try {
+                const response = await fetch(`${doctorsUrl}?${query}`, {
+                    headers: { Accept: 'application/json' },
+                    signal: doctorsRequest.signal,
+                });
+
+                if (! response.ok) {
+                    throw new Error(`Doctors request failed: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                this.requiresDoctor = result.requires_doctor;
+                this.services = result.services;
+                this.doctors = result.doctors;
+
+                // Keep the receptionist's choice while it still fits; otherwise offer the recommended doctor.
+                if (! this.chosenDoctor) {
+                    this.doctorId = this.doctors.find((doctor) => doctor.recommended)?.id ?? '';
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    this.requiresDoctor = true;
+                    this.doctors = [];
+                    this.doctorsError = true;
+                }
+            }
+        },
 
         async lookup() {
             // Anything with fewer than 9 digits can't be a full number yet.

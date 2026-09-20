@@ -36,7 +36,7 @@ class SendSmsJob implements ShouldQueue, ShouldQueueAfterCommit
 
     public function handle(AfricasTalkingGateway $gateway): void
     {
-        $notification = $this->notification->fresh(['patient.facility']);
+        $notification = $this->notification->fresh(['patient', 'facility']);
 
         // Already dealt with (a re-run, or two workers): never send it twice.
         if ($notification === null || $notification->status !== NotificationStatus::Queued) {
@@ -45,9 +45,9 @@ class SendSmsJob implements ShouldQueue, ShouldQueueAfterCommit
 
         try {
             $result = $gateway->send(
-                $notification->patient->phone,
+                $notification->recipientPhone(),
                 $notification->message,
-                $notification->patient->facility->sms_sender_id ?: config('services.africastalking.default_sender_id'),
+                $notification->facility->sms_sender_id ?: config('services.africastalking.default_sender_id'),
             );
         } catch (Throwable $exception) {
             report($exception);

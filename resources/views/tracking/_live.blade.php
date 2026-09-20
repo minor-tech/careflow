@@ -17,8 +17,24 @@
     <p class="shrink-0 text-ink/70">Queue <span class="numeral text-ink">{{ $snapshot->queueLabel }}</span></p>
 </div>
 
+{{-- Whose line this is. Only ever the patient's own doctor, and never how many other patients that doctor has. --}}
+@if ($snapshot->doctorName)
+    <p class="mt-2 text-sm text-ink/70">Your doctor: <span class="font-semibold text-ink">{{ $snapshot->doctorName }}</span></p>
+    @if ($snapshot->doctorChanged)
+        <p class="mt-2 rounded-2xl border-l-4 border-wait bg-white px-4 py-3 text-sm shadow-card" role="status">Your assigned doctor has changed. You are now with {{ $snapshot->doctorName }}, and your queue number is {{ $snapshot->queueLabel }}.</p>
+    @endif
+@endif
+
 @if ($snapshot->serving)
-    <p class="mt-2 text-sm text-ink/70">Currently serving: <span class="font-semibold tabular-nums text-ink">{{ $snapshot->serving }}</span></p>
+    <p class="mt-2 text-sm text-ink/70">{{ $snapshot->doctorName ? 'Currently seeing' : 'Currently serving' }}: <span class="font-semibold tabular-nums text-ink">{{ $snapshot->serving }}</span></p>
+@endif
+
+{{-- Accepted from home: when to set off, above everything else. Gone the moment staff check them in. --}}
+@if ($snapshot->awaitingArrival && $snapshot->arrivalWindow)
+    <p class="mt-6 rounded-2xl border-l-4 border-wait bg-white px-4 py-3 shadow-card">
+        <span class="block text-sm text-ink/70">Recommended arrival</span>
+        <span class="block text-xl font-semibold tabular-nums">{{ $snapshot->arrivalWindow }}</span>
+    </p>
 @endif
 
 @if ($ahead !== null)
@@ -44,6 +60,20 @@
 
 @if ($snapshot->estimate)
     <p class="mt-2 pl-[1.625rem] text-sm text-ink/60">Estimated wait: {{ $snapshot->estimate->label() }}</p>
+@endif
+
+@if ($snapshot->awaitingArrival)
+    {{-- Saying so is only a claim: it tells the front desk to look up and check them in, and changes nothing about the queue until they do. --}}
+    <div class="mt-8">
+        @if ($snapshot->arrivalSignaled)
+            <p class="rounded-2xl border-l-4 border-info bg-white px-4 py-3 text-sm shadow-card" role="status">Thanks. Please tell the front desk you are here: staff will check you in and you'll be waiting in the queue.</p>
+        @else
+            <form method="POST" action="{{ route('tracking.arrived', $snapshot->visit->tracking_token) }}">
+                <button type="submit" class="btn-primary w-full">I've arrived</button>
+            </form>
+            <p class="mt-2 text-center text-sm text-ink/60">Tap this when you reach the facility. Staff will then check you in.</p>
+        @endif
+    </div>
 @endif
 
 @if ($snapshot->askForFeedback)

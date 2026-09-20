@@ -204,6 +204,20 @@ class DepartmentDurationCalculatorTest extends TestCase
         $this->assertSame([], $calculator->serviceFor($cancelled));
     }
 
+    public function test_a_pin_reset_during_service_neither_splits_a_stay_nor_cancels_the_service(): void
+    {
+        $visit = $this->visitWith([
+            [0, VisitEventType::Registered, $this->consultation],
+            [5, VisitEventType::Started, $this->consultation],
+            [10, VisitEventType::PinReset, $this->consultation],
+            [25, VisitEventType::Completed, $this->consultation],
+        ]);
+        $calculator = app(DepartmentDurationCalculator::class);
+
+        $this->assertSame([[$this->consultation->id, 25.0]], $this->asPairs($calculator->legsFor($visit)));
+        $this->assertSame([[$this->consultation->id, 20.0]], $this->asPairs($calculator->serviceFor($visit)));
+    }
+
     public function test_the_stays_of_many_visits_are_read_together(): void
     {
         $first = $this->threeDepartmentVisit();
@@ -226,5 +240,54 @@ class DepartmentDurationCalculatorTest extends TestCase
     public function test_a_query_that_selects_no_visits_gives_nothing(): void
     {
         $this->assertCount(0, app(DepartmentDurationCalculator::class)->legsOfVisits(Visit::whereKey(999999)));
+    }
+
+    public function test_the_hours_a_patient_accepted_from_home_spent_at_home_are_not_time_in_the_department(): void
+    {
+        $visit = $this->visitWith([
+            [0, VisitEventType::Registered, $this->consultation],
+            [90, VisitEventType::CheckedIn, $this->consultation],
+            [95, VisitEventType::Called, $this->consultation],
+            [96, VisitEventType::Started, $this->consultation],
+            [120, VisitEventType::Completed, $this->consultation],
+        ]);
+        $calculator = app(DepartmentDurationCalculator::class);
+
+        $this->assertSame([[$this->consultation->id, 30.0]], $this->asPairs($calculator->legsFor($visit)), 'Their stay starts when they arrive, not when they were given a place.');
+        $this->assertSame([[$this->consultation->id, 24.0]], $this->asPairs($calculator->serviceFor($visit)), 'Being seen is unaffected.');
+    }
+
+    public function test_a_self_check_in_is_unchanged_because_it_arrives_the_moment_it_registers(): void
+    {
+        $visit = $this->visitWith([
+            [0, VisitEventType::Registered, $this->consultation],
+            [0, VisitEventType::CheckedIn, $this->consultation],
+            [5, VisitEventType::Called, $this->consultation],
+            [6, VisitEventType::Started, $this->consultation],
+            [20, VisitEventType::Completed, $this->consultation],
+        ]);
+
+        $this->assertSame([[$this->consultation->id, 20.0]], $this->asPairs(app(DepartmentDurationCalculator::class)->legsFor($visit)));
+    }
+
+    public function test_a_check_in_with_no_stay_to_anchor_to_is_ignored(): void
+    {
+        $visit = $this->visitWith([[5, VisitEventType::CheckedIn, $this->consultation]]);
+
+        $this->assertSame([], app(DepartmentDurationCalculator::class)->legsFor($visit));
+    }
+
+    public function test_arriving_signalling_or_being_moved_back_mid_service_does_not_cancel_the_service(): void
+    {
+        $visit = $this->visitWith([
+            [0, VisitEventType::Registered, $this->consultation],
+            [5, VisitEventType::Started, $this->consultation],
+            [8, VisitEventType::ArrivalSignaled, $this->consultation],
+            [9, VisitEventType::CheckedIn, $this->consultation],
+            [10, VisitEventType::Skipped, $this->consultation],
+            [25, VisitEventType::Completed, $this->consultation],
+        ]);
+
+        $this->assertSame([[$this->consultation->id, 20.0]], $this->asPairs(app(DepartmentDurationCalculator::class)->serviceFor($visit)));
     }
 }

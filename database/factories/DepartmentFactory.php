@@ -26,7 +26,16 @@ class DepartmentFactory extends Factory
             'name' => $type->label(),
             'type' => $type,
             'is_active' => true,
+            'requires_doctor_assignment' => false,
         ];
+    }
+
+    /**
+     * A department that gives each patient their own doctor, with a line per doctor.
+     */
+    public function assigningDoctors(): static
+    {
+        return $this->state(fn (array $attributes) => ['requires_doctor_assignment' => true]);
     }
 
     public function inactive(): static

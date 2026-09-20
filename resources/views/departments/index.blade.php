@@ -26,7 +26,12 @@
                 <span class="cf-dot cf-dot--{{ $dotColors[$loop->index % count($dotColors)] }}" aria-hidden="true"></span>
                 <div class="cf-list-row__main">
                     <p class="truncate font-medium">{{ $department->name }}</p>
-                    <p class="text-sm text-ink/70">{{ $department->type->label() }}</p>
+                    <p class="text-sm text-ink/70">
+                        {{ $department->type->label() }}
+                        @if ($department->requires_doctor_assignment)
+                            &middot; each patient has their own doctor
+                        @endif
+                    </p>
                 </div>
 
                 <div class="cf-list-row__side">

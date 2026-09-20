@@ -11,9 +11,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A message sent to a patient about their visit, and what became of it.
+ * A message sent to a patient about their visit, and what became of it. One to
+ * someone who was never a patient (a declined queue request) has no patient
+ * and carries the number it went to.
  */
-#[Fillable(['facility_id', 'patient_id', 'visit_id', 'channel', 'message', 'status', 'provider_response', 'sent_at'])]
+#[Fillable(['facility_id', 'patient_id', 'phone', 'visit_id', 'channel', 'message', 'status', 'provider_response', 'sent_at'])]
 class PatientNotification extends Model
 {
     /** @use HasFactory<PatientNotificationFactory> */
@@ -44,6 +46,14 @@ class PatientNotification extends Model
     public function visit(): BelongsTo
     {
         return $this->belongsTo(Visit::class);
+    }
+
+    /**
+     * The number the message goes to: the patient's, or the one it was addressed to.
+     */
+    public function recipientPhone(): string
+    {
+        return $this->phone ?? $this->patient->phone;
     }
 
     public function markSent(string $providerResponse): void

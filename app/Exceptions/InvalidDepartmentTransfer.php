@@ -22,6 +22,16 @@ class InvalidDepartmentTransfer extends RuntimeException
         return new self("{$department->name} isn't taking patients right now, so nobody can be sent there.");
     }
 
+    public static function needsDoctor(Department $department): self
+    {
+        return new self("{$department->name} gives each patient their own doctor: choose one to send them to.");
+    }
+
+    public static function doctorNotAvailable(Department $department): self
+    {
+        return new self("That doctor isn't on duty in {$department->name} right now. Choose another.");
+    }
+
     public static function otherFacility(): self
     {
         return new self("That department doesn't belong to this facility.");

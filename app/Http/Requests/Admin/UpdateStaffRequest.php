@@ -30,8 +30,19 @@ class UpdateStaffRequest extends FormRequest
                 'required',
                 Rule::exists('departments', 'id')->where('facility_id', $this->user()->facility_id),
             ],
+            // A doctor's specialty: one of the services of the department they work in.
+            'service_id' => [
+                'nullable',
+                Rule::exists('services', 'id')->where('department_id', $this->input('department_id')),
+            ],
             'status' => ['required', Rule::enum(UserStatus::class)],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        // Only a doctor has a specialty.
+        $this->merge(['service_id' => $this->input('role') === UserRole::Doctor->value ? $this->input('service_id') : null]);
     }
 
     /**
@@ -43,6 +54,7 @@ class UpdateStaffRequest extends FormRequest
             'phone.regex' => 'Enter a valid phone number, for example 0712 345 678.',
             'department_id.required' => 'Choose the department this person works in.',
             'department_id.exists' => 'Choose one of your facility\'s departments.',
+            'service_id.exists' => 'Choose one of the services of the department this person works in.',
         ];
     }
 }

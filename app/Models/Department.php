@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['facility_id', 'name', 'type', 'is_active'])]
+#[Fillable(['facility_id', 'name', 'type', 'is_active', 'requires_doctor_assignment'])]
 class Department extends Model
 {
     /** @use HasFactory<DepartmentFactory> */
@@ -24,6 +24,7 @@ class Department extends Model
         return [
             'type' => DepartmentType::class,
             'is_active' => 'boolean',
+            'requires_doctor_assignment' => 'boolean',
         ];
     }
 
@@ -35,6 +36,14 @@ class Department extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    /**
+     * What patients can be seen for here.
+     */
+    public function services(): HasMany
+    {
+        return $this->hasMany(Service::class);
     }
 
     public function visits(): HasMany

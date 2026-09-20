@@ -5,7 +5,8 @@ namespace App\Support;
 use App\Enums\JourneyStepState;
 
 /**
- * One stop on a patient's journey, as shown to them.
+ * One stop on a patient's journey, as shown to them: a department, or for a
+ * patient in a doctor's own line the step of being assigned to and seen by them.
  */
 final readonly class JourneyStep
 {

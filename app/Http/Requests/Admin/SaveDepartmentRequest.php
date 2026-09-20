@@ -38,6 +38,7 @@ class SaveDepartmentRequest extends FormRequest
             ],
             'type' => ['required', Rule::enum(DepartmentType::class)],
             'is_active' => ['boolean'],
+            'requires_doctor_assignment' => ['boolean'],
         ];
     }
 
@@ -53,6 +54,9 @@ class SaveDepartmentRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->merge(['is_active' => $this->boolean('is_active')]);
+        $this->merge([
+            'is_active' => $this->boolean('is_active'),
+            'requires_doctor_assignment' => $this->boolean('requires_doctor_assignment'),
+        ]);
     }
 }

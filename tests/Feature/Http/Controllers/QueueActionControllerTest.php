@@ -66,6 +66,7 @@ class QueueActionControllerTest extends TestCase
             'complete a patient being served' => ['complete', VisitStatus::InService, VisitStatus::Completed, VisitEventType::Completed],
             'cancel a waiting patient' => ['cancel', VisitStatus::Waiting, VisitStatus::Cancelled, VisitEventType::Cancelled],
             'cancel a called patient (the no-show)' => ['cancel', VisitStatus::Called, VisitStatus::Cancelled, VisitEventType::Cancelled],
+            'cancel a patient who never arrived' => ['cancel', VisitStatus::AwaitingArrival, VisitStatus::Cancelled, VisitEventType::Cancelled],
         ];
     }
 

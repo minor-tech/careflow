@@ -13,6 +13,8 @@ use App\Models\User;
 use App\Models\Visit;
 use App\Services\TrackingQrCode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Hash;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -277,7 +279,7 @@ class PatientVisitControllerTest extends TestCase
         $this->assertDatabaseCount('visits', 0);
     }
 
-    public function test_the_confirmation_screen_shows_the_queue_number_as_the_hero(): void
+    public function test_the_confirmation_screen_shows_the_queue_code_as_the_hero(): void
     {
         $this->register(['phone' => '0711 000 001']);
         $this->register(['phone' => '0711 000 002', 'name' => 'Otieno Odhiambo']);
@@ -288,8 +290,9 @@ class PatientVisitControllerTest extends TestCase
             ->assertOk()
             ->assertSeeText('Upendo Health Centre')
             ->assertSeeText('Otieno Odhiambo')
-            ->assertSeeText('Queue number')
-            ->assertSee('aria-label="Queue number 2"', false)
+            ->assertSeeText('Queue code')
+            ->assertSeeText('V002')
+            ->assertSee('aria-label="Queue code V002"', false)
             ->assertSee('tabular-nums', false)
             ->assertSee('Register another patient')
             ->assertSee(route('patients.register'), false);
@@ -352,5 +355,81 @@ class PatientVisitControllerTest extends TestCase
         $this->register([], $admin)->assertRedirect(route('visits.confirmation', Visit::sole()));
 
         $this->assertSame($admin->id, Visit::sole()->created_by);
+    }
+
+    public function test_a_new_visit_gets_a_hashed_four_digit_pin_and_the_pin_is_handed_to_the_next_screen_once(): void
+    {
+        $response = $this->register();
+
+        $visit = Visit::sole();
+        $pin = Crypt::decryptString(session('access_pin'));
+
+        $this->assertMatchesRegularExpression('/^\d{4}$/', $pin);
+        $this->assertTrue(Hash::check($pin, $visit->access_pin_hash));
+        $this->assertNotSame($pin, $visit->access_pin_hash);
+        $this->assertNotNull($visit->tracking_token);
+        $response->assertRedirect(route('visits.confirmation', $visit));
+        $this->assertStringNotContainsString($pin, session('access_pin'));
+    }
+
+    public function test_every_visit_gets_its_own_pin_hash(): void
+    {
+        $this->register(['phone' => '0711 000 001']);
+        $this->register(['phone' => '0711 000 002']);
+
+        $this->assertSame(2, Visit::whereNotNull('access_pin_hash')->distinct()->count('access_pin_hash'));
+    }
+
+    public function test_the_confirmation_screen_right_after_registering_shows_the_pin_and_a_ticket_to_print(): void
+    {
+        $this->register();
+        $visit = Visit::sole();
+        $pin = Crypt::decryptString(session('access_pin'));
+
+        $this->actingAs($this->receptionist)
+            ->get(route('visits.confirmation', $visit))
+            ->assertOk()
+            ->assertSeeInOrder(['Patient added', 'Queue code', 'V001', 'Access PIN', $pin])
+            ->assertSee('Show QR')
+            ->assertSee('Print ticket')
+            ->assertHeader('Cache-Control', 'no-store, private');
+    }
+
+    public function test_the_printed_ticket_has_the_facility_queue_code_pin_qr_and_the_manual_entry_address_but_no_patient_name(): void
+    {
+        $this->register();
+        $visit = Visit::sole();
+        $pin = Crypt::decryptString(session('access_pin'));
+
+        $html = $this->actingAs($this->receptionist)->get(route('visits.confirmation', $visit))->getContent();
+
+        $this->assertMatchesRegularExpression('/<section id="ticket"(.*?)<\/section>/s', $html);
+        preg_match('/<section id="ticket"(.*?)<\/section>/s', $html, $ticket);
+
+        $this->assertStringContainsString('Upendo Health Centre', $ticket[1]);
+        $this->assertStringContainsString('V001', $ticket[1]);
+        $this->assertStringContainsString($pin, $ticket[1]);
+        $this->assertStringContainsString('src="'.app(TrackingQrCode::class)->dataUri($visit->trackingUrl()).'"', $ticket[1]);
+        $this->assertStringContainsString(preg_replace('#^https?://#', '', $this->facility->trackingEntryUrl()), $ticket[1]);
+        $this->assertStringNotContainsString('Wanjiru Kamau', $ticket[1]);
+    }
+
+    public function test_after_a_reload_the_pin_is_gone_and_there_is_nothing_to_print(): void
+    {
+        $this->register();
+        $visit = Visit::sole();
+        $pin = Crypt::decryptString(session('access_pin'));
+
+        $this->actingAs($this->receptionist)->get(route('visits.confirmation', $visit))->assertSee($pin);
+
+        $this->actingAs($this->receptionist)
+            ->get(route('visits.confirmation', $visit))
+            ->assertOk()
+            ->assertDontSee($pin)
+            ->assertDontSee('Print ticket')
+            ->assertDontSee('id="ticket"', false)
+            ->assertSeeText('shown only once')
+            ->assertSee('V001')
+            ->assertSee('Show QR');
     }
 }

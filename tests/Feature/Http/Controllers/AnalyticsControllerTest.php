@@ -292,4 +292,41 @@ class AnalyticsControllerTest extends TestCase
 
         $this->actingAs($admin)->get(route('analytics.index'))->assertRedirect(route('password.force'));
     }
+
+    public function test_shows_each_doctors_real_workload_over_the_last_30_days(): void
+    {
+        $doctor = User::factory()->for($this->facility)->doctor()->onDuty()->create(['name' => 'Wanjiku Mwangi', 'department_id' => $this->consultation->id]);
+
+        foreach ([[10, 12, 30], [20, 21, 33]] as [$called, $started, $completed]) {
+            $this->visitWith([
+                [0, VisitEventType::Registered, $this->consultation],
+                [0, VisitEventType::DoctorAssigned, $this->consultation],
+                [$called, VisitEventType::Called, $this->consultation],
+                [$started, VisitEventType::Started, $this->consultation],
+                [$completed, VisitEventType::Completed, $this->consultation],
+            ], attributes: ['status' => VisitStatus::Completed, 'department_id' => $this->consultation->id, 'assigned_doctor_id' => $doctor->id, 'doctor_queue_number' => 1]);
+        }
+
+        $this->actingAs($this->admin)
+            ->get(route('analytics.index'))
+            ->assertOk()
+            ->assertSeeText('Doctor workload')
+            ->assertSeeTextInOrder(['Dr. Wanjiku Mwangi', '2 patients', 'Avg wait', '15 min', 'Avg consultation', '15 min']);
+    }
+
+    public function test_the_doctor_workload_says_so_when_no_patient_has_been_assigned_yet(): void
+    {
+        $this->actingAs($this->admin)
+            ->get(route('analytics.index'))
+            ->assertOk()
+            ->assertSeeText('Doctor workload')
+            ->assertSeeText('A doctor appears here once patients have been assigned to them.');
+    }
+
+    public function test_doctor_workload_is_only_for_the_admin_of_that_facility(): void
+    {
+        $doctor = User::factory()->for($this->facility)->doctor()->create(['department_id' => $this->consultation->id]);
+
+        $this->actingAs($doctor)->get(route('analytics.index'))->assertForbidden();
+    }
 }

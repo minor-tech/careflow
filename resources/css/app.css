@@ -226,6 +226,20 @@ a.cf-stat-card:hover { box-shadow: 0 8px 24px rgba(11, 46, 41, 0.1); }
 .cf-status-pill--danger { --pill-bg: #F8E9E8; --pill-dot: var(--danger); --pill-text: #8E3530; }
 .cf-status-pill--muted { --pill-bg: var(--accent-slate-tint); --pill-dot: var(--accent-slate); --pill-text: #4F5C61; }
 
+/* Printing (the ticket on the registration screen): drop the app shell and let the page be just the ticket. */
+@page { margin: 12mm; }
+@media print {
+    .cf-sidebar,
+    .cf-backdrop,
+    .cf-topbar { display: none !important; }
+    .cf-content { padding: 0; }
+}
+
+/* Named weights for the odd spot that needs one outside the normal component styles. Most text just inherits the body font. */
+.gs-regular { font-family: "Google Sans", sans-serif; font-optical-sizing: auto; font-weight: 400; font-style: normal; font-variation-settings: "GRAD" 0; }
+.gs-medium { font-family: "Google Sans", sans-serif; font-optical-sizing: auto; font-weight: 500; font-style: normal; font-variation-settings: "GRAD" 0; }
+.gs-bold { font-family: "Google Sans", sans-serif; font-optical-sizing: auto; font-weight: 700; font-style: normal; font-variation-settings: "GRAD" 0; }
+
 @tailwind utilities;
 
 :root {
@@ -278,19 +292,11 @@ body {
 }
 
 /*
- * The one typeface for the whole product: Manrope, self-hosted (variable weight,
- * latin subset). It ships a real tabular-figures feature, so the queue-number
- * treatment (.numeral, tabular-nums) keeps working unchanged. The template's own
- * Gordita is not used: its font files were not part of the download.
+ * The one typeface for the whole product: Google Sans, loaded by the <link> tags in
+ * layouts/head.blade.php (every layout includes it). It ships a real tabular-figures
+ * feature, so the queue-number treatment (.numeral, tabular-nums) keeps working. The
+ * system fonts after it in the stack are what shows until it arrives.
  */
-@font-face {
-    font-family: 'Manrope';
-    font-style: normal;
-    font-weight: 200 800;
-    font-display: swap;
-    src: url('/fonts/manrope/manrope-latin-var.woff2') format('woff2');
-    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
 
 [x-cloak] {
     display: none !important;
@@ -298,7 +304,10 @@ body {
 
 @layer base {
     body {
-        @apply font-sans text-ink antialiased;
+        @apply text-ink antialiased;
+        font-family: "Google Sans", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-optical-sizing: auto;
+        font-variation-settings: "GRAD" 0;
     }
 
     /* Headings: bold, tight, balanced. Sizes come from the utilities on each heading. */
@@ -454,14 +463,14 @@ body {
     /* The public site's type scale: a confident jump from body text to headline. */
     .display-hero {
         font-size: clamp(2.75rem, 1.6rem + 5vw, 4.5rem);
-        font-weight: 800;
+        font-weight: 700;
         line-height: 1.138;
         letter-spacing: -0.03em;
     }
 
     .display-section {
         font-size: clamp(2rem, 1.3rem + 3vw, 3rem);
-        font-weight: 800;
+        font-weight: 700;
         line-height: 1.15;
         letter-spacing: -0.025em;
     }

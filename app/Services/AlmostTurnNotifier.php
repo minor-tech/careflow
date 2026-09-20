@@ -20,6 +20,9 @@ class AlmostTurnNotifier
      * department's queue that they're almost up. Each gets the message once,
      * however many completions follow.
      *
+     * A patient in one doctor's own line is only ever compared with that
+     * doctor's other patients, and one in a shared line with the shared line.
+     *
      * The front is the first few waiting, in the order the queue is worked
      * (whoever joined this department's queue first), whether or not they were
      * already told; only those not yet told get the message. Filtering out the
@@ -36,8 +39,14 @@ class AlmostTurnNotifier
         $front = Visit::query()
             ->where('facility_id', $completed->facility_id)
             ->where('department_id', $completed->department_id)
-            ->where('status', VisitStatus::Waiting)
+            // Someone on their way holds a place too, and is the one who most needs the warning.
+            ->whereIn('status', [VisitStatus::Waiting, VisitStatus::AwaitingArrival])
             ->registeredToday()
+            ->when(
+                $completed->isInDoctorQueue(),
+                fn ($line) => $line->where('assigned_doctor_id', $completed->assigned_doctor_id)->whereNotNull('doctor_queue_number'),
+                fn ($line) => $line->whereNull('doctor_queue_number'),
+            )
             ->orderByRaw('coalesce(department_entered_at, created_at)')
             ->orderBy('queue_number')
             ->orderBy('id')
@@ -54,7 +63,7 @@ class AlmostTurnNotifier
             $claimed = Visit::whereKey($visit->id)->where('almost_turn_notified', false)->update(['almost_turn_notified' => true]);
 
             if ($claimed === 1) {
-                $this->sms->send($visit->patient, $this->templates->almostTurn($visit), $visit);
+                $this->sms->send($visit->patient, $visit->isAwaitingArrival() ? $this->templates->almostTurnRemote($visit) : $this->templates->almostTurn($visit), $visit);
             }
         }
     }

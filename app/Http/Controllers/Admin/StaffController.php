@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreStaffRequest;
 use App\Http\Requests\Admin\UpdateStaffRequest;
 use App\Models\Facility;
+use App\Models\Service;
 use App\Models\User;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\RedirectResponse;
@@ -25,7 +26,7 @@ class StaffController extends Controller
     {
         $staff = $this->facility($request)
             ->users()
-            ->with('department')
+            ->with(['department', 'service'])
             ->orderBy('role')
             ->orderBy('name')
             ->orderBy('id')
@@ -69,7 +70,14 @@ class StaffController extends Controller
 
     public function update(UpdateStaffRequest $request, User $staff): RedirectResponse
     {
-        $staff->update($request->validated());
+        $attributes = $request->validated();
+
+        // Someone who is no longer a doctor can't stay on duty as one.
+        if ($attributes['role'] !== UserRole::Doctor->value) {
+            $attributes['is_on_duty'] = false;
+        }
+
+        $staff->update($attributes);
 
         return redirect()->route('staff.index')->with('success', "{$staff->name}'s account was updated.");
     }
@@ -101,13 +109,21 @@ class StaffController extends Controller
     }
 
     /**
-     * @return array{roles: array<string, string>, departments: array<int, string>}
+     * @return array{roles: array<string, string>, departments: array<int, string>, servicesByDepartment: array<int, mixed>}
      */
     private function formOptions(Facility $facility): array
     {
         return [
             'roles' => UserRole::staffOptions(),
             'departments' => $facility->departments()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all(),
+            // Each department's services, for the specialty a doctor is given.
+            'servicesByDepartment' => Service::query()
+                ->whereIn('department_id', $facility->departments()->select('id'))
+                ->orderBy('name')
+                ->get(['id', 'department_id', 'name'])
+                ->groupBy('department_id')
+                ->map(fn ($services) => $services->map(fn (Service $service) => ['id' => $service->id, 'name' => $service->name])->values())
+                ->all(),
         ];
     }
 

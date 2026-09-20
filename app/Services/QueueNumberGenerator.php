@@ -14,7 +14,10 @@ class QueueNumberGenerator
      *
      * Every department has its own sequence (Laboratory's number 8 is
      * unrelated to Reception's number 27), and passing no department gives the
-     * facility-wide number a patient is handed at registration.
+     * facility-wide number a patient is handed at registration. A doctor, in
+     * a department that assigns patients to doctors, has a personal sequence
+     * of their own on top of that: two doctors in Consultation each count 1, 2,
+     * 3 independently.
      *
      * It works on a locked counter row rather than counting visits, so two
      * receptionists registering at the same moment queue up on the row and
@@ -22,17 +25,22 @@ class QueueNumberGenerator
      * the visit: the row stays locked until that commits, and a failed visit
      * rolls the number back instead of leaving a gap.
      */
-    public function next(int $facilityId, ?int $departmentId = null): int
+    public function next(int $facilityId, ?int $departmentId = null, ?int $doctorId = null): int
     {
         $today = $this->today();
 
-        return DB::transaction(function () use ($facilityId, $departmentId, $today): int {
+        return DB::transaction(function () use ($facilityId, $departmentId, $doctorId, $today): int {
             $counter = QueueCounter::where('facility_id', $facilityId)
                 ->where('date', $today)
                 ->when(
                     $departmentId === null,
                     fn ($query) => $query->whereNull('department_id'),
                     fn ($query) => $query->where('department_id', $departmentId),
+                )
+                ->when(
+                    $doctorId === null,
+                    fn ($query) => $query->whereNull('doctor_id'),
+                    fn ($query) => $query->where('doctor_id', $doctorId),
                 );
 
             // Only the first registration of the day finds the row missing. It
@@ -47,6 +55,7 @@ class QueueNumberGenerator
                 QueueCounter::insertOrIgnore([
                     'facility_id' => $facilityId,
                     'department_id' => $departmentId,
+                    'doctor_id' => $doctorId,
                     'date' => $today,
                     'last_number' => 0,
                 ]);

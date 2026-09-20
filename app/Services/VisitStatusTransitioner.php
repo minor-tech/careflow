@@ -34,6 +34,8 @@ class VisitStatusTransitioner
      * @var array<string, list<VisitStatus>>
      */
     private const ALLOWED = [
+        // Someone accepted from home is checked in (see RemoteArrival), never called: all that can happen to them here is a no-show.
+        'awaiting_arrival' => [VisitStatus::Cancelled],
         'waiting' => [VisitStatus::Called, VisitStatus::Cancelled],
         'called' => [VisitStatus::InService, VisitStatus::Waiting, VisitStatus::Cancelled],
         'in_service' => [VisitStatus::Completed],
@@ -102,13 +104,19 @@ class VisitStatusTransitioner
      * visit, and the move, the new number and the log entry all succeed or fail
      * together.
      *
+     * Where the destination gives each patient their own doctor, one has to be
+     * chosen (and be on duty there): the patient joins that doctor's own line
+     * with its own number instead of the department's shared one. Leaving such
+     * a department clears that place in the line, but the visit keeps the
+     * doctor it had, as history.
+     *
      * @throws InvalidVisitTransition when the patient isn't in service
-     * @throws InvalidDepartmentTransfer when the destination is the current department, inactive, or another facility's
+     * @throws InvalidDepartmentTransfer when the destination is the current department, inactive, another facility's, or needs a doctor who isn't given or isn't on duty
      */
-    public function transferToDepartment(Visit $visit, Department $to, User $actor): Visit
+    public function transferToDepartment(Visit $visit, Department $to, User $actor, ?User $doctor = null): Visit
     {
         // Retried if MySQL picks this as a deadlock victim; nothing has been committed by then.
-        return DB::transaction(function () use ($visit, $to, $actor): Visit {
+        return DB::transaction(function () use ($visit, $to, $actor, $doctor): Visit {
             $current = Visit::whereKey($visit->getKey())->lockForUpdate()->firstOrFail();
 
             if ($current->status !== VisitStatus::InService) {
@@ -129,9 +137,26 @@ class VisitStatusTransitioner
                 throw InvalidDepartmentTransfer::inactive($destination);
             }
 
+            if ($destination->requires_doctor_assignment) {
+                if ($doctor === null) {
+                    throw InvalidDepartmentTransfer::needsDoctor($destination);
+                }
+
+                $isAvailable = User::query()
+                    ->availableDoctors($destination->facility_id, $destination->id)
+                    ->whereKey($doctor->id)
+                    ->exists();
+
+                if (! $isAvailable) {
+                    throw InvalidDepartmentTransfer::doctorNotAvailable($destination);
+                }
+            }
+
             $current->update([
                 'department_id' => $destination->id,
-                'department_queue_number' => $this->queueNumbers->next($current->facility_id, $destination->id),
+                'department_queue_number' => $destination->requires_doctor_assignment ? null : $this->queueNumbers->next($current->facility_id, $destination->id),
+                'assigned_doctor_id' => $destination->requires_doctor_assignment ? $doctor->id : $current->assigned_doctor_id,
+                'doctor_queue_number' => $destination->requires_doctor_assignment ? $this->queueNumbers->next($current->facility_id, $destination->id, $doctor->id) : null,
                 'status' => VisitStatus::Waiting,
                 'department_entered_at' => now(),
                 // A new department is a new queue, so they can be told they're almost up there too.
@@ -144,6 +169,16 @@ class VisitStatusTransitioner
                 'event' => VisitEventType::Transferred,
                 'user_id' => $actor->id,
             ]);
+
+            if ($destination->requires_doctor_assignment) {
+                VisitEvent::create([
+                    'visit_id' => $current->id,
+                    'department_id' => $destination->id,
+                    'event' => VisitEventType::DoctorAssigned,
+                    'user_id' => $actor->id,
+                    'meta' => ['doctor_id' => $doctor->id],
+                ]);
+            }
 
             VisitTransferred::dispatch($current);
 

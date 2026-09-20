@@ -57,6 +57,7 @@ class AppLayout extends Component
                 'Patient flow' => [
                     ['label' => 'Queue', 'route' => 'queue.index', 'icon' => 'queue', 'match' => 'queue.*'],
                     ['label' => 'Register patient', 'route' => 'patients.register', 'icon' => 'register', 'match' => 'patients.*'],
+                    ['label' => 'Remote requests', 'route' => 'remote-requests.index', 'icon' => 'bell', 'match' => 'remote-requests.*'],
                     ['label' => 'Notifications', 'route' => 'notifications.index', 'icon' => 'bell', 'match' => 'notifications.*'],
                 ],
                 'Staff & structure' => [
@@ -69,6 +70,7 @@ class AppLayout extends Component
                 'Patient flow' => [
                     ['label' => 'Queue', 'route' => 'queue.index', 'icon' => 'queue', 'match' => 'queue.*'],
                     ['label' => 'Register patient', 'route' => 'patients.register', 'icon' => 'register', 'match' => 'patients.*'],
+                    ['label' => 'Remote requests', 'route' => 'remote-requests.index', 'icon' => 'bell', 'match' => 'remote-requests.*'],
                 ],
             ],
             UserRole::Doctor, UserRole::Nurse => [

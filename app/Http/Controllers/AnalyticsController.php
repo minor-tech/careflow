@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\DoctorWorkload;
 use App\Services\FacilityDailyStats;
 use App\Services\FeedbackStats;
 use Illuminate\Http\Request;
@@ -14,13 +15,14 @@ use Illuminate\View\View;
  */
 class AnalyticsController extends Controller
 {
-    public function index(Request $request, FacilityDailyStats $stats, FeedbackStats $feedback): View
+    public function index(Request $request, FacilityDailyStats $stats, FeedbackStats $feedback, DoctorWorkload $workload): View
     {
         $facility = $this->facility($request);
 
         return view('analytics.index', [
             'summary' => $stats->summary($facility->id),
             'departments' => $stats->departmentPerformance($facility->id),
+            'doctors' => $workload->lastThirtyDays($facility->id),
             'experience' => $feedback->breakdown($facility->id),
             'today' => now(config('careflow.timezone')),
         ]);

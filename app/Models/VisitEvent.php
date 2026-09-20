@@ -14,7 +14,7 @@ use LogicException;
  * One step of a visit's journey. Append-only: rows are written once and never
  * changed or removed, so the log can be trusted to reconstruct what happened.
  */
-#[Fillable(['visit_id', 'department_id', 'event', 'user_id'])]
+#[Fillable(['visit_id', 'department_id', 'event', 'user_id', 'meta'])]
 class VisitEvent extends Model
 {
     /** @use HasFactory<VisitEventFactory> */
@@ -38,6 +38,7 @@ class VisitEvent extends Model
     {
         return [
             'event' => VisitEventType::class,
+            'meta' => 'array',
             'created_at' => 'datetime',
         ];
     }

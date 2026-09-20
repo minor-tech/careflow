@@ -60,13 +60,26 @@
                     @else
                         <p class="text-sm text-ink/70">No department</p>
                     @endif
+                    @if ($member->isDoctor() && $member->service)
+                        <p class="text-sm text-ink/70">{{ $member->service->name }}</p>
+                    @endif
                 </div>
 
                 <div class="cf-person-card__status">
                     <x-status-pill :label="$member->status->label()" :tone="$member->status->tone()" />
+                    @if ($member->isDoctor() && ! $member->isSuspended())
+                        <x-status-pill :label="$member->isOnDuty() ? 'On duty' : 'Off duty'" :tone="$member->isOnDuty() ? 'ok' : 'muted'" size="sm" class="mt-1" />
+                    @endif
                 </div>
 
                 <div class="cf-person-card__actions">
+                    @if ($member->isDoctor() && ! $member->isSuspended())
+                        <form method="POST" action="{{ route('staff.duty', $member) }}">
+                            @csrf
+                            <input type="hidden" name="on_duty" value="{{ $member->isOnDuty() ? 0 : 1 }}">
+                            <x-outline-button type="submit" class="btn-sm">{{ $member->isOnDuty() ? 'Set off duty' : 'Set on duty' }}</x-outline-button>
+                        </form>
+                    @endif
                     @unless ($member->isAdmin())
                         <a href="{{ route('staff.edit', $member) }}" class="btn-outline btn-sm">Edit</a>
                         @unless ($member->isSuspended())

@@ -5,6 +5,7 @@ namespace Tests\Feature\Services;
 use App\Models\Department;
 use App\Models\Facility;
 use App\Models\QueueCounter;
+use App\Models\User;
 use App\Models\Visit;
 use App\Services\QueueNumberGenerator;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -117,6 +118,69 @@ class QueueNumberGeneratorTest extends TestCase
         $this->expectException(UniqueConstraintViolationException::class);
 
         QueueCounter::factory()->for($facility)->create(['department_id' => null, 'date' => '2026-09-18']);
+    }
+
+    public function test_two_doctors_in_one_department_each_count_from_1_independently(): void
+    {
+        $facility = Facility::factory()->create();
+        $consultation = Department::factory()->for($facility)->assigningDoctors()->create();
+        $wanjiku = User::factory()->for($facility)->doctor()->create(['department_id' => $consultation->id]);
+        $kamau = User::factory()->for($facility)->doctor()->create(['department_id' => $consultation->id]);
+
+        $this->assertSame(1, $this->generator->next($facility->id, $consultation->id, $wanjiku->id));
+        $this->assertSame(2, $this->generator->next($facility->id, $consultation->id, $wanjiku->id));
+        $this->assertSame(1, $this->generator->next($facility->id, $consultation->id, $kamau->id));
+        $this->assertSame(3, $this->generator->next($facility->id, $consultation->id, $wanjiku->id));
+        $this->assertSame(2, $this->generator->next($facility->id, $consultation->id, $kamau->id));
+    }
+
+    public function test_a_doctors_numbers_do_not_touch_the_departments_or_the_facilitys(): void
+    {
+        $facility = Facility::factory()->create();
+        $consultation = Department::factory()->for($facility)->assigningDoctors()->create();
+        $doctor = User::factory()->for($facility)->doctor()->create(['department_id' => $consultation->id]);
+
+        $this->generator->next($facility->id, $consultation->id, $doctor->id);
+        $this->generator->next($facility->id, $consultation->id, $doctor->id);
+
+        $this->assertSame(1, $this->generator->next($facility->id, $consultation->id));
+        $this->assertSame(1, $this->generator->next($facility->id));
+        $this->assertDatabaseCount('queue_counters', 3);
+    }
+
+    public function test_a_doctors_numbers_restart_at_1_each_day(): void
+    {
+        $facility = Facility::factory()->create();
+        $consultation = Department::factory()->for($facility)->assigningDoctors()->create();
+        $doctor = User::factory()->for($facility)->doctor()->create(['department_id' => $consultation->id]);
+
+        $this->travelTo(now()->setDateTime(2026, 9, 18, 9, 0, 0)->utc());
+        $this->generator->next($facility->id, $consultation->id, $doctor->id);
+        $this->assertSame(2, $this->generator->next($facility->id, $consultation->id, $doctor->id));
+
+        $this->travelTo(now()->setDateTime(2026, 9, 19, 9, 0, 0)->utc());
+        $this->assertSame(1, $this->generator->next($facility->id, $consultation->id, $doctor->id));
+    }
+
+    public function test_the_database_refuses_a_second_counter_for_the_same_doctor_and_day_but_not_for_another_doctor(): void
+    {
+        $facility = Facility::factory()->create();
+        $consultation = Department::factory()->for($facility)->assigningDoctors()->create();
+        $wanjiku = User::factory()->for($facility)->doctor()->create(['department_id' => $consultation->id]);
+        $kamau = User::factory()->for($facility)->doctor()->create(['department_id' => $consultation->id]);
+
+        $counter = fn (User $doctor) => QueueCounter::factory()->for($facility)->create([
+            'department_id' => $consultation->id,
+            'doctor_id' => $doctor->id,
+            'date' => '2026-09-18',
+        ]);
+
+        $counter($wanjiku);
+        $counter($kamau);
+
+        $this->expectException(UniqueConstraintViolationException::class);
+
+        $counter($wanjiku);
     }
 
     public function test_keeps_a_single_counter_row_per_facility_per_day(): void

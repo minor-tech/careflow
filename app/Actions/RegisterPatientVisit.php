@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Enums\DepartmentType;
 use App\Enums\VisitEventType;
+use App\Enums\VisitSource;
 use App\Enums\VisitStatus;
 use App\Events\VisitRegistered;
 use App\Models\Department;
@@ -12,8 +13,11 @@ use App\Models\User;
 use App\Models\Visit;
 use App\Models\VisitEvent;
 use App\Services\QueueNumberGenerator;
+use App\Support\AccessPin;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use InvalidArgumentException;
 
 class RegisterPatientVisit
 {
@@ -25,28 +29,67 @@ class RegisterPatientVisit
      * the visit, all in one transaction so a failure part-way leaves nothing
      * behind (and doesn't use up a queue number).
      *
-     * @param  array{phone: string, name: string, dob?: string|null, gender?: string|null, department_id?: int|string|null}  $data  Validated; phone already canonical.
+     * Other ways in use the same registration: a request accepted from home
+     * (awaiting arrival: they hold their place in the line but are not in the
+     * building yet) and a patient who checked themselves in on their own phone
+     * (already here, so waiting at once). $announce is false where the caller
+     * sends its own, more fitting, message than the registration text.
+     *
+     * The visit keeps only a hash of its access PIN. The caller passes the PIN
+     * in so it can show it once; without one, a PIN is made and thrown away,
+     * leaving a visit that can be followed by its link only.
+     *
+     * Where the department gives each patient their own doctor, the visit is
+     * also assigned to the doctor in $data and joins that doctor's personal
+     * queue, with its own number and an audit entry saying who it was assigned
+     * to. The doctor was chosen by the receptionist and checked by the request:
+     * this never picks one. A department that needs a doctor refuses to
+     * register anyone without one, so no patient can land in a line nobody sees.
+     *
+     * @param  array{phone: string, name: string, dob?: string|null, gender?: string|null, department_id?: int|string|null, service_id?: int|string|null, doctor_id?: int|string|null}  $data  Validated; phone already canonical.
+     *
+     * @throws InvalidArgumentException when the department needs a doctor and none was given
      */
-    public function handle(User $staff, array $data): Visit
-    {
+    public function handle(
+        User $staff,
+        array $data,
+        ?string $accessPin = null,
+        VisitSource $source = VisitSource::WalkIn,
+        bool $awaitingArrival = false,
+        bool $announce = true,
+    ): Visit {
         $facilityId = $staff->facility_id;
+
+        // Hashed before the transaction opens: a deliberately slow hash must not
+        // run while the facility's queue counter is locked.
+        $accessPinHash = Hash::make($accessPin ?? AccessPin::generate());
 
         // Retried a few times: if MySQL picks this transaction as a deadlock
         // victim (two registrations colliding on the first number of the day)
         // nothing has been committed, so running it again is safe.
-        return DB::transaction(function () use ($staff, $facilityId, $data): Visit {
+        return DB::transaction(function () use ($staff, $facilityId, $data, $accessPinHash, $source, $awaitingArrival, $announce): Visit {
             $patient = $this->findOrCreatePatient($facilityId, $data);
 
             $queueNumber = $this->queueNumbers->next($facilityId);
 
+            $departmentId = $data['department_id'] ?? $this->receptionDepartmentId($facilityId);
+            $doctorId = $this->doctorIdFor($departmentId, $data['doctor_id'] ?? null);
+
             $visit = Visit::create([
                 'facility_id' => $facilityId,
                 'patient_id' => $patient->id,
-                'department_id' => $data['department_id'] ?? $this->receptionDepartmentId($facilityId),
+                'department_id' => $departmentId,
+                'assigned_doctor_id' => $doctorId,
+                'doctor_queue_number' => $doctorId === null ? null : $this->queueNumbers->next($facilityId, $departmentId, $doctorId),
+                'service_id' => $data['service_id'] ?? null,
                 'queue_number' => $queueNumber,
                 'department_entered_at' => now(),
-                'status' => VisitStatus::Waiting,
+                'status' => $awaitingArrival ? VisitStatus::AwaitingArrival : VisitStatus::Waiting,
+                'source' => $source,
+                // Someone who checked themselves in is confirmed by staff standing in front of them: they are here now.
+                'arrived_at' => $source === VisitSource::SelfCheckin ? now() : null,
                 'created_by' => $staff->id,
+                'access_pin_hash' => $accessPinHash,
             ]);
 
             // The first entry in the visit's audit log.
@@ -57,8 +100,29 @@ class RegisterPatientVisit
                 'user_id' => $staff->id,
             ]);
 
+            if ($doctorId !== null) {
+                VisitEvent::create([
+                    'visit_id' => $visit->id,
+                    'department_id' => $visit->department_id,
+                    'event' => VisitEventType::DoctorAssigned,
+                    'user_id' => $staff->id,
+                    'meta' => ['doctor_id' => $doctorId],
+                ]);
+            }
+
+            if ($source === VisitSource::SelfCheckin) {
+                VisitEvent::create([
+                    'visit_id' => $visit->id,
+                    'department_id' => $visit->department_id,
+                    'event' => VisitEventType::CheckedIn,
+                    'user_id' => $staff->id,
+                ]);
+            }
+
             // Reacted to only once this transaction commits, so a registration that rolls back tells no one.
-            VisitRegistered::dispatch($visit);
+            if ($announce) {
+                VisitRegistered::dispatch($visit);
+            }
 
             return $visit;
         }, attempts: 3);
@@ -107,6 +171,24 @@ class RegisterPatientVisit
         }
 
         return $patient;
+    }
+
+    /**
+     * The doctor the visit is assigned to: the one given, when the department
+     * assigns patients to doctors, and nobody where it doesn't.
+     */
+    private function doctorIdFor(?int $departmentId, int|string|null $doctorId): ?int
+    {
+        $requiresDoctor = $departmentId !== null
+            && Department::whereKey($departmentId)->value('requires_doctor_assignment');
+
+        if (! $requiresDoctor) {
+            return null;
+        }
+
+        return $doctorId === null
+            ? throw new InvalidArgumentException('This department assigns patients to a doctor: choose one before registering.')
+            : (int) $doctorId;
     }
 
     /**

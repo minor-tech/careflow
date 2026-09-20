@@ -42,13 +42,50 @@ class VisitJourney
 
         $lastIndex = array_key_last($legs);
 
-        return array_map(
+        $steps = array_map(
             fn (string $name, int $index): JourneyStep => $index < $lastIndex
                 ? new JourneyStep($name, JourneyStepState::Done)
                 : $this->lastStep($visit, $name),
             $legs,
             array_keys($legs),
         );
+
+        return $this->isOpen($visit) && $visit->isInDoctorQueue()
+            ? $this->withDoctor($visit, $steps, registeredHere: count($legs) === 1)
+            : $steps;
+    }
+
+    /**
+     * For a patient in one doctor's line, the stop they are at is told as a
+     * doctor: assigned, then waiting for, called by, or with that doctor. If
+     * they registered straight into that department there is no earlier stop
+     * to show, so registering is shown as the first step.
+     *
+     * @param  list<JourneyStep>  $steps
+     * @return list<JourneyStep>
+     */
+    private function withDoctor(Visit $visit, array $steps, bool $registeredHere): array
+    {
+        $doctor = $visit->loadMissing('assignedDoctor')->assignedDoctor?->doctorName() ?? 'your doctor';
+
+        array_pop($steps);
+
+        if ($registeredHere) {
+            $steps[] = new JourneyStep('Registered', JourneyStepState::Done);
+        }
+
+        $steps[] = new JourneyStep("Doctor assigned: {$doctor}", JourneyStepState::Done);
+        $steps[] = new JourneyStep(
+            match ($visit->status) {
+                VisitStatus::Called => "Called by {$doctor}",
+                VisitStatus::InService => "With {$doctor}",
+                default => "Waiting for {$doctor}",
+            },
+            JourneyStepState::Current,
+            $visit->loadMissing('department')->queueLabel(),
+        );
+
+        return $steps;
     }
 
     /**

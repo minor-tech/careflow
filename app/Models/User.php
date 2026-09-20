@@ -8,6 +8,7 @@ use App\Enums\UserStatus;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -17,7 +18,7 @@ use Illuminate\Support\Str;
 
 #[Fillable([
     'name', 'email', 'password', 'phone', 'title', 'role', 'status',
-    'facility_id', 'department_id', 'two_factor_enabled', 'must_change_password',
+    'facility_id', 'department_id', 'service_id', 'is_on_duty', 'two_factor_enabled', 'must_change_password',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
@@ -36,6 +37,7 @@ class User extends Authenticatable
             'role' => UserRole::class,
             'status' => UserStatus::class,
             'two_factor_enabled' => 'boolean',
+            'is_on_duty' => 'boolean',
             'must_change_password' => 'boolean',
         ];
     }
@@ -48,6 +50,22 @@ class User extends Authenticatable
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * A doctor's specialty.
+     */
+    public function service(): BelongsTo
+    {
+        return $this->belongsTo(Service::class);
+    }
+
+    /**
+     * The visits assigned to this doctor, today's and before.
+     */
+    public function assignedVisits(): HasMany
+    {
+        return $this->hasMany(Visit::class, 'assigned_doctor_id');
     }
 
     /**
@@ -64,6 +82,41 @@ class User extends Authenticatable
     public function createdVisits(): HasMany
     {
         return $this->hasMany(Visit::class, 'created_by');
+    }
+
+    /**
+     * The doctors of one department who can be given patients right now:
+     * active accounts that have switched themselves on duty.
+     *
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
+    public function scopeAvailableDoctors(Builder $query, int $facilityId, int $departmentId): Builder
+    {
+        return $query
+            ->where('facility_id', $facilityId)
+            ->where('department_id', $departmentId)
+            ->where('role', UserRole::Doctor)
+            ->where('status', UserStatus::Active)
+            ->where('is_on_duty', true);
+    }
+
+    /**
+     * Whether this doctor is taking patients: an explicit switch they or an
+     * admin turn on, not something worked out from being signed in.
+     */
+    public function isOnDuty(): bool
+    {
+        return $this->is_on_duty === true;
+    }
+
+    /**
+     * How a doctor is named to patients and colleagues: "Dr. Wanjiku", without
+     * doubling the title for someone whose name already starts with it.
+     */
+    public function doctorName(): string
+    {
+        return preg_match('/^dr\.?\s/i', $this->name) === 1 ? $this->name : 'Dr. '.$this->name;
     }
 
     public function isAdmin(): bool

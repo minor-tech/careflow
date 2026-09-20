@@ -8,6 +8,7 @@ enum VisitStatus: string
 {
     use HasOptions;
 
+    case AwaitingArrival = 'awaiting_arrival';
     case Waiting = 'waiting';
     case Called = 'called';
     case InService = 'in_service';
@@ -18,6 +19,7 @@ enum VisitStatus: string
     public function label(): string
     {
         return match ($this) {
+            self::AwaitingArrival => 'On their way',
             self::Waiting => 'Waiting',
             self::Called => 'Called',
             self::InService => 'In service',
@@ -33,6 +35,7 @@ enum VisitStatus: string
     public function tone(): string
     {
         return match ($this) {
+            self::AwaitingArrival => 'info',
             self::Waiting => 'wait',
             self::Called => 'info',
             self::InService => 'ok',

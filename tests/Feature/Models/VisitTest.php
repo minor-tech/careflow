@@ -159,4 +159,32 @@ class VisitTest extends TestCase
         $this->expectException(UniqueConstraintViolationException::class);
         QueueCounter::factory()->for($facility)->create(['date' => '2026-09-18']);
     }
+
+    public function test_the_queue_code_is_v_and_the_padded_registration_number(): void
+    {
+        $this->assertSame('V027', Visit::factory()->make(['queue_number' => 27])->queueCode());
+    }
+
+    public function test_the_pin_hash_never_leaves_the_model_when_it_is_serialised(): void
+    {
+        $visit = Visit::factory()->withAccessPin('7394')->create();
+
+        $this->assertArrayNotHasKey('access_pin_hash', $visit->toArray());
+        $this->assertStringNotContainsString($visit->access_pin_hash, $visit->toJson());
+    }
+
+    public function test_unfinished_leaves_out_completed_and_cancelled_visits_only(): void
+    {
+        $facility = Facility::factory()->create();
+        $waiting = Visit::factory()->for($facility)->create(['status' => VisitStatus::Waiting]);
+        $called = Visit::factory()->for($facility)->create(['status' => VisitStatus::Called]);
+        $serving = Visit::factory()->for($facility)->create(['status' => VisitStatus::InService]);
+        Visit::factory()->for($facility)->create(['status' => VisitStatus::Completed]);
+        Visit::factory()->for($facility)->create(['status' => VisitStatus::Cancelled]);
+
+        $this->assertEqualsCanonicalizing(
+            [$waiting->id, $called->id, $serving->id],
+            Visit::unfinished()->pluck('id')->all(),
+        );
+    }
 }

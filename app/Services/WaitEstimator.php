@@ -34,15 +34,26 @@ class WaitEstimator
     private const ROUND_TO_MINUTES = 5;
 
     /**
-     * How many people are waiting in this visit's department ahead of it, in
-     * the same order the "almost your turn" text uses (arrival at the
-     * department, then registration number). Only people still waiting count:
+     * The statuses that hold a place in a line ahead of someone. A patient
+     * accepted from home holds theirs before they are in the building, so
+     * they count: they will be called in their turn unless staff move them.
+     *
+     * @var list<VisitStatus>
+     */
+    private const IN_LINE = [VisitStatus::Waiting, VisitStatus::AwaitingArrival];
+
+    /**
+     * How many people hold a place in this visit's line ahead of it, in the same
+     * order the "almost your turn" text uses (arrival at the department, then
+     * registration number). The line is the department's shared one, or, for a
+     * patient assigned to a doctor, that doctor's own: a patient never waits
+     * behind someone else's doctor's queue. Only people still waiting count:
      * someone already called or being seen is no longer in the line. Nothing
      * is ahead of a patient who isn't waiting themselves.
      */
     public function patientsAhead(Visit $visit): int
     {
-        if ($visit->status !== VisitStatus::Waiting || $visit->department_id === null) {
+        if (! in_array($visit->status, self::IN_LINE, true) || $visit->department_id === null) {
             return 0;
         }
 
@@ -52,8 +63,13 @@ class WaitEstimator
         return Visit::query()
             ->where('facility_id', $visit->facility_id)
             ->where('department_id', $visit->department_id)
-            ->where('status', VisitStatus::Waiting)
+            ->whereIn('status', self::IN_LINE)
             ->registeredToday()
+            ->when(
+                $visit->isInDoctorQueue(),
+                fn (Builder $line) => $line->where('assigned_doctor_id', $visit->assigned_doctor_id)->whereNotNull('doctor_queue_number'),
+                fn (Builder $line) => $line->whereNull('doctor_queue_number'),
+            )
             ->where(function (Builder $ahead) use ($arrival, $joined, $visit): void {
                 $ahead->whereRaw("{$arrival} < ?", [$joined])
                     ->orWhere(function (Builder $tied) use ($arrival, $joined, $visit): void {
@@ -75,13 +91,52 @@ class WaitEstimator
      */
     public function estimate(Visit $visit, int $patientsAhead): WaitEstimate
     {
-        $perPatient = $this->learnedMinutesPerPatient($visit->department_id) ?? (float) config('careflow.tracking.default_minutes_per_patient');
-        $best = $patientsAhead * $perPatient / $this->servers($visit->department_id);
+        // A patient in one doctor's own line is served by that one doctor, however many the department has.
+        $servers = $visit->isInDoctorQueue() ? 1 : $this->servers($visit->department_id);
+
+        return $this->estimateFor($visit->department_id, $patientsAhead, $servers);
+    }
+
+    /**
+     * The same range for anyone joining a department's line with this many
+     * people ahead of them, before they have a visit: what receptionists are
+     * shown beside each doctor.
+     */
+    public function estimateFor(?int $departmentId, int $patientsAhead, int $servers = 1): WaitEstimate
+    {
+        $best = $patientsAhead * $this->minutesPerPatient($departmentId) / max(1, $servers);
 
         $low = $this->roundToStep($best * (1 - self::SPREAD));
         $high = max($this->roundToStep($best * (1 + self::SPREAD)), $low + self::ROUND_TO_MINUTES);
 
         return new WaitEstimate($low, $high);
+    }
+
+    /**
+     * The wait for someone about to join a department's shared line today: what
+     * is in it already, shared out across the staff who serve it. For the
+     * facility's public card and for a request accepted into a department that
+     * has no doctor lines.
+     */
+    public function estimateForDepartmentQueue(int $departmentId): WaitEstimate
+    {
+        $inLine = Visit::query()
+            ->where('department_id', $departmentId)
+            ->whereIn('status', [...self::IN_LINE, VisitStatus::Called, VisitStatus::InService])
+            ->whereNull('doctor_queue_number')
+            ->registeredToday()
+            ->count();
+
+        return $this->estimateFor($departmentId, $inLine, $this->servers($departmentId));
+    }
+
+    /**
+     * How long one patient takes at a department: what the nightly job
+     * measured, or the configured default until it has enough history.
+     */
+    public function minutesPerPatient(?int $departmentId): float
+    {
+        return $this->learnedMinutesPerPatient($departmentId) ?? (float) config('careflow.tracking.default_minutes_per_patient');
     }
 
     /**

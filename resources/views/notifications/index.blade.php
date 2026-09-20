@@ -50,7 +50,7 @@
                         </p>
                     </div>
                     <p class="mt-1 text-sm text-ink/70">
-                        {{ $notification->patient->name }} &middot; <span class="tabular-nums">{{ $notification->patient->phone }}</span>
+                        {{ $notification->patient?->name ?? 'Not a patient' }} &middot; <span class="tabular-nums">{{ $notification->recipientPhone() }}</span>
                     </p>
 
                     @if ($notification->status === \App\Enums\NotificationStatus::Failed && $notification->provider_response)

@@ -18,6 +18,11 @@ final readonly class TrackingSnapshot
      * @param  list<JourneyStep>  $steps
      * @param  bool  $askForFeedback  The visit is complete and hasn't been rated yet.
      * @param  bool  $feedbackGiven  The visit is complete and has been rated.
+     * @param  string|null  $doctorName  The doctor whose line the patient is in, if they are in one. Never anything about that doctor's other patients.
+     * @param  bool  $doctorChanged  The patient was handed from one doctor to another, and hasn't been seen since.
+     * @param  bool  $awaitingArrival  Accepted from home and not yet checked in: holding a place, not in the building.
+     * @param  string|null  $arrivalWindow  When they were advised to arrive, e.g. "10:20–10:30 AM".
+     * @param  bool  $arrivalSignaled  They have said they've arrived and are waiting for staff to check them in.
      */
     public function __construct(
         public Visit $visit,
@@ -32,5 +37,10 @@ final readonly class TrackingSnapshot
         public bool $open,
         public bool $askForFeedback,
         public bool $feedbackGiven,
+        public ?string $doctorName = null,
+        public bool $doctorChanged = false,
+        public bool $awaitingArrival = false,
+        public ?string $arrivalWindow = null,
+        public bool $arrivalSignaled = false,
     ) {}
 }

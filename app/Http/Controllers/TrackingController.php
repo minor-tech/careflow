@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Visit;
+use App\Services\RemoteArrival;
 use App\Services\VisitTracker;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 
 /**
@@ -39,6 +41,23 @@ class TrackingController extends Controller
             'token' => $token,
             'pollSeconds' => (int) config('careflow.tracking.poll_seconds'),
         ])->withHeaders(self::PRIVATE_HEADERS);
+    }
+
+    /**
+     * "I've arrived", from a patient accepted from home. It is only a claim:
+     * it shows staff they say they're here, and changes nothing about the queue
+     * until staff check them in. Doing it twice, or when it means nothing (not
+     * awaiting arrival), does nothing and lands them on the same page.
+     */
+    public function arrived(string $token, RemoteArrival $arrival): RedirectResponse
+    {
+        $visit = Visit::findByTrackingToken($token);
+
+        abort_if($visit === null, 404);
+
+        $arrival->signal($visit);
+
+        return redirect()->route('tracking.show', $token);
     }
 
     /**

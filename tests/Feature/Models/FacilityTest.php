@@ -83,4 +83,12 @@ class FacilityTest extends TestCase
         $this->assertTrue($department->belongsToFacility($facility->id));
         $this->assertFalse($department->belongsToFacility($facility->id + 1));
     }
+
+    public function test_its_tracking_entry_address_is_built_on_the_app_url_and_its_own_slug(): void
+    {
+        config(['app.url' => 'https://careflow.example/']);
+        $facility = Facility::factory()->create(['slug' => 'upendo']);
+
+        $this->assertSame('https://careflow.example/upendo/track', $facility->trackingEntryUrl());
+    }
 }

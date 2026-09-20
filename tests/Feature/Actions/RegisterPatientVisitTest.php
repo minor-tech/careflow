@@ -15,6 +15,7 @@ use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -156,5 +157,22 @@ class RegisterPatientVisitTest extends TestCase
         $this->assertSame($first->patient_id, $second->patient_id);
         $this->assertSame([1, 2], Visit::orderBy('id')->pluck('queue_number')->all());
         $this->assertSame('Wanjiru K.', Patient::sole()->name);
+    }
+
+    public function test_the_visit_keeps_a_hash_of_the_pin_it_was_given_and_never_the_pin(): void
+    {
+        $visit = app(RegisterPatientVisit::class)->handle($this->receptionist, $this->data(), '7394');
+
+        $this->assertTrue(Hash::check('7394', $visit->access_pin_hash));
+        $this->assertNotSame('7394', $visit->access_pin_hash);
+        $this->assertDatabaseMissing('visits', ['access_pin_hash' => '7394']);
+    }
+
+    public function test_a_visit_registered_without_a_pin_still_gets_a_hash_so_none_is_left_without_one(): void
+    {
+        $visit = app(RegisterPatientVisit::class)->handle($this->receptionist, $this->data());
+
+        $this->assertNotNull($visit->access_pin_hash);
+        $this->assertNotEmpty(Hash::info($visit->access_pin_hash)['algoName']);
     }
 }

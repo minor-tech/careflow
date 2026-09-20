@@ -27,6 +27,7 @@ class VisitStatusTransitionerTest extends TestCase
     public static function allowedMoves(): array
     {
         return [
+            'cancel a patient who never arrived' => [VisitStatus::AwaitingArrival, VisitStatus::Cancelled, VisitEventType::Cancelled],
             'call a waiting patient' => [VisitStatus::Waiting, VisitStatus::Called, VisitEventType::Called],
             'cancel a waiting patient' => [VisitStatus::Waiting, VisitStatus::Cancelled, VisitEventType::Cancelled],
             'start a called patient' => [VisitStatus::Called, VisitStatus::InService, VisitEventType::Started],

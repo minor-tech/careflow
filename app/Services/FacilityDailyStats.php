@@ -96,7 +96,7 @@ class FacilityDailyStats
 
     /**
      * For each of today's visits that has been called, the minutes from
-     * registering to first being called (a later recall doesn't restart it).
+     * registering (or, for someone accepted from home, arriving) to first being called (a later recall doesn't restart it).
      * Someone still waiting to be called for the first time has no finished
      * wait to report yet, so they aren't in it.
      *
@@ -106,15 +106,18 @@ class FacilityDailyStats
     {
         return VisitEvent::query()
             ->whereIn('visit_id', $this->today($facilityId)->select('id'))
-            ->whereIn('event', [VisitEventType::Registered, VisitEventType::Called])
+            ->whereIn('event', [VisitEventType::Registered, VisitEventType::CheckedIn, VisitEventType::Called])
             ->orderBy('id')
             ->get(['visit_id', 'event', 'created_at'])
             ->groupBy('visit_id')
             ->map(function (Collection $events): ?float {
+                // A patient accepted from home only starts waiting when they are checked in; until then they were at home.
+                $arrived = $events->first(fn (VisitEvent $event) => $event->event === VisitEventType::CheckedIn)
+                    ?? $events->first(fn (VisitEvent $event) => $event->event === VisitEventType::Registered);
                 $registered = $events->first(fn (VisitEvent $event) => $event->event === VisitEventType::Registered);
                 $called = $registered === null ? null : $events->first(fn (VisitEvent $event) => $event->event === VisitEventType::Called);
 
-                return $called === null ? null : max(0, $called->created_at->getTimestamp() - $registered->created_at->getTimestamp()) / 60;
+                return $called === null ? null : max(0, $called->created_at->getTimestamp() - $arrived->created_at->getTimestamp()) / 60;
             })
             ->filter(fn (?float $minutes) => $minutes !== null)
             ->values();

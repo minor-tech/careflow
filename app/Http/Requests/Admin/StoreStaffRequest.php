@@ -31,6 +31,11 @@ class StoreStaffRequest extends FormRequest
                 'required',
                 Rule::exists('departments', 'id')->where('facility_id', $this->user()->facility_id),
             ],
+            // A doctor's specialty: one of the services of the department they work in.
+            'service_id' => [
+                'nullable',
+                Rule::exists('services', 'id')->where('department_id', $this->input('department_id')),
+            ],
         ];
     }
 
@@ -44,11 +49,16 @@ class StoreStaffRequest extends FormRequest
             'email.unique' => 'An account with this email already exists.',
             'department_id.required' => 'Choose the department this person works in.',
             'department_id.exists' => 'Choose one of your facility\'s departments.',
+            'service_id.exists' => 'Choose one of the services of the department this person works in.',
         ];
     }
 
     protected function prepareForValidation(): void
     {
-        $this->merge(['email' => strtolower(trim((string) $this->input('email')))]);
+        $this->merge([
+            'email' => strtolower(trim((string) $this->input('email'))),
+            // Only a doctor has a specialty.
+            'service_id' => $this->input('role') === UserRole::Doctor->value ? $this->input('service_id') : null,
+        ]);
     }
 }

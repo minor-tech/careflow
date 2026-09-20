@@ -68,6 +68,30 @@
         </div>
     </section>
 
+    {{-- For managers only: how loaded each doctor has been. A patient's own page never shows any of it. --}}
+    <section aria-labelledby="doctors-heading" class="mt-10">
+        <h2 id="doctors-heading" class="text-lg font-semibold">Doctor workload &mdash; last 30 days</h2>
+        <p class="mt-1 text-sm text-ink/70">Patients assigned to each doctor (cancelled visits left out), how long they waited from being assigned to being called, and how long the doctor spent with them. Worked out from the queue log, busiest first.</p>
+
+        <div class="cf-list-card mt-3">
+            @forelse ($doctors as $doctor)
+                <div class="cf-list-row">
+                    <span class="cf-dot cf-dot--blue" aria-hidden="true"></span>
+                    <div class="cf-list-row__main">
+                        <p class="min-w-0 break-words font-medium">{{ $doctor['name'] }}</p>
+                        <p class="text-sm text-ink/70"><span class="tabular-nums">{{ $doctor['patients'] }}</span> {{ $doctor['patients'] === 1 ? 'patient' : 'patients' }}</p>
+                    </div>
+                    <div class="cf-list-row__side">
+                        <span><span class="text-ink/70">Avg wait</span> <span class="font-semibold tabular-nums">{{ $minutes($doctor['avg_wait_minutes']) }}</span></span>
+                        <span><span class="text-ink/70">Avg consultation</span> <span class="font-semibold tabular-nums">{{ $minutes($doctor['avg_consultation_minutes']) }}</span></span>
+                    </div>
+                </div>
+            @empty
+                <p class="cf-list-card__empty">Nothing to show yet. A doctor appears here once patients have been assigned to them.</p>
+            @endforelse
+        </div>
+    </section>
+
     {{-- Kept on this page, right under the department table: "long wait" complaints and the slowest department are two independent sources, and a manager can see whether they agree. --}}
     <section aria-labelledby="experience-heading" class="mt-10">
         <h2 id="experience-heading" class="text-lg font-semibold">Customer experience &mdash; last 30 days</h2>

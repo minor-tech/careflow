@@ -255,4 +255,23 @@ class AlmostTurnNotifierTest extends TestCase
         // Number 1 is left to whoever claimed it; this run only told number 2.
         $this->assertSame([2], $this->told());
     }
+
+    public function test_someone_still_on_their_way_who_is_near_the_front_is_told_to_come_now(): void
+    {
+        $onTheirWay = $this->waiting(1, attributes: ['status' => VisitStatus::AwaitingArrival]);
+        $here = $this->waiting(2);
+        $this->waiting(3);
+
+        $this->notify($this->justCompleted());
+
+        $this->assertSame([1, 2], $this->told());
+        $this->assertSame(
+            "Upendo Clinic: You're almost up in Consultation. Please come to the facility now.",
+            PatientNotification::where('visit_id', $onTheirWay->id)->sole()->message,
+        );
+        $this->assertSame(
+            "Upendo Clinic: You're almost up in Consultation. Please be ready.",
+            PatientNotification::where('visit_id', $here->id)->sole()->message,
+        );
+    }
 }

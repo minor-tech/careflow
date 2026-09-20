@@ -4,7 +4,8 @@
         <p class="text-sm text-ink/60">{{ $member->email }}</p>
     </x-slot>
 
-    <form method="POST" action="{{ route('staff.update', $member) }}" class="cf-card max-w-xl space-y-5">
+    <form method="POST" action="{{ route('staff.update', $member) }}" class="cf-card max-w-xl space-y-5"
+          x-data="staffSpecialty({ role: @js((string) old('role', $member->role->value)), department: @js((string) old('department_id', $member->department_id)), service: @js((string) old('service_id', $member->service_id)), services: @js($servicesByDepartment) })">
         @csrf
         @method('PATCH')
 
@@ -18,13 +19,22 @@
 
         <div class="grid gap-5 sm:grid-cols-2">
             <x-field name="role" label="Role">
-                <x-select id="role" name="role" :options="$roles" :selected="old('role', $member->role->value)" required />
+                <x-select id="role" name="role" :options="$roles" :selected="old('role', $member->role->value)" required x-model="role" />
             </x-field>
 
             <x-field name="department_id" label="Department">
-                <x-select id="department_id" name="department_id" :options="$departments" :selected="old('department_id', $member->department_id)" placeholder="Select a department" required />
+                <x-select id="department_id" name="department_id" :options="$departments" :selected="old('department_id', $member->department_id)" placeholder="Select a department" required x-model="department" x-on:change="service = ''" />
             </x-field>
         </div>
+
+        <x-field name="service_id" label="Specialty" optional x-show="offersSpecialty" x-cloak hint="What this doctor is seen for. Registration recommends doctors whose specialty matches what the patient came for.">
+            <select id="service_id" name="service_id" class="field-input" x-model="service">
+                <option value="">General (no specialty)</option>
+                <template x-for="option in options" :key="option.id">
+                    <option :value="option.id" x-text="option.name"></option>
+                </template>
+            </select>
+        </x-field>
 
         <x-field name="status" label="Account status" hint="A suspended person can't log in, but their account and history are kept.">
             <x-select id="status" name="status" :options="\App\Enums\UserStatus::options()" :selected="old('status', $member->status->value)" required />

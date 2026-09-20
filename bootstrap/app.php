@@ -15,10 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // A patient's rating is sent from their tracking page, whose live part is fetched without
-        // cookies, so it can't carry a session's CSRF token. The link's secret is the credential, and
-        // there is no login or session for a forged request to ride on.
-        $middleware->validateCsrfTokens(except: ['t/*/feedback']);
+        // A patient's rating, and their "I've arrived", are sent from their tracking page, whose live part is
+        // fetched without cookies, so it can't carry a session's CSRF token. The link's secret is the credential,
+        // and there is no login or session for a forged request to ride on.
+        $middleware->validateCsrfTokens(except: ['t/*/feedback', 't/*/arrived']);
 
         $middleware->alias([
             'role' => EnsureUserHasRole::class,

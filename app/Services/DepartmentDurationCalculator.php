@@ -105,6 +105,12 @@ class DepartmentDurationCalculator
                     $entered = null;
                     break;
 
+                case VisitEventType::CheckedIn:
+                    // Someone accepted from home holds a place from the moment they were accepted, but they only
+                    // start waiting in the building when they arrive: the hours at home aren't time in the department.
+                    $entered = $entered === null ? null : [$entered[0], $event];
+                    break;
+
                 default:
                     // Called, started and recalled happen inside a stay; they don't start or end one.
                     break;
@@ -133,6 +139,15 @@ class DepartmentDurationCalculator
                 case VisitEventType::Transferred:
                     $this->close($stints, $started, $event);
                     $started = null;
+                    break;
+
+                case VisitEventType::PinReset:
+                case VisitEventType::DoctorAssigned:
+                case VisitEventType::DoctorReassigned:
+                case VisitEventType::ArrivalSignaled:
+                case VisitEventType::CheckedIn:
+                case VisitEventType::Skipped:
+                    // Re-issuing a PIN, choosing a doctor or arriving says nothing about the care being given.
                     break;
 
                 default:

@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
 use App\Models\Facility;
+use App\Models\Service;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -66,6 +67,19 @@ class UserFactory extends Factory
     public function doctor(): static
     {
         return $this->withRole(UserRole::Doctor);
+    }
+
+    /**
+     * A doctor who has switched themself on duty, so patients can be assigned to them.
+     */
+    public function onDuty(): static
+    {
+        return $this->state(fn (array $attributes) => ['is_on_duty' => true]);
+    }
+
+    public function specializingIn(Service $service): static
+    {
+        return $this->state(fn (array $attributes) => ['service_id' => $service->id, 'department_id' => $service->department_id]);
     }
 
     public function nurse(): static

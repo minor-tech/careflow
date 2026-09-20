@@ -11,22 +11,20 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="robots" content="noindex">
         <title>{{ $code }} · CareFlow</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap" rel="stylesheet">
         <style>
             :root { --bg: #FFFFFF; --primary: #1E6B5C; --text: #0B2E29; --border: #EEF1F0; }
-            @font-face {
-                font-family: 'Manrope';
-                font-style: normal;
-                font-weight: 200 800;
-                font-display: swap;
-                src: url('/fonts/manrope/manrope-latin-var.woff2') format('woff2');
-            }
             * { box-sizing: border-box; }
             body {
                 margin: 0;
                 min-height: 100vh;
                 background: linear-gradient(to bottom, #CFE0D9, var(--bg) 60%);
                 color: var(--text);
-                font-family: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+                font-family: "Google Sans", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                font-optical-sizing: auto;
+                font-variation-settings: "GRAD" 0;
                 -webkit-font-smoothing: antialiased;
             }
             main {

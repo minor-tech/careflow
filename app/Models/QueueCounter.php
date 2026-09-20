@@ -9,11 +9,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * The last queue number handed out on a given day: for one department, or,
- * with no department, the facility-wide registration numbers. Only ever
+ * The last queue number handed out on a given day: for one doctor, for one
+ * department, or, with neither, the facility-wide registration numbers. Only ever
  * changed through App\Services\QueueNumberGenerator.
  */
-#[Fillable(['facility_id', 'department_id', 'date', 'last_number'])]
+#[Fillable(['facility_id', 'department_id', 'doctor_id', 'date', 'last_number'])]
 class QueueCounter extends Model
 {
     /** @use HasFactory<QueueCounterFactory> */
@@ -40,5 +40,10 @@ class QueueCounter extends Model
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function doctor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'doctor_id');
     }
 }

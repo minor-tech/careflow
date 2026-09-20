@@ -2,6 +2,7 @@
     $description = $attributes->get('description', 'CareFlow gives Kenyan clinics and hospitals a live view of every patient\'s visit, and gives patients their own link to see where they stand.');
     $links = [
         ['label' => 'Home', 'route' => 'home'],
+        ['label' => 'Find a facility', 'route' => 'directory.index'],
         ['label' => 'About', 'route' => 'about'],
         ['label' => 'Contact', 'route' => 'contact'],
     ];
@@ -88,6 +89,7 @@
 
                 <nav aria-label="Footer" class="flex flex-wrap gap-x-8 gap-y-2 text-sm">
                     <a href="{{ route('home') }}" class="site-nav-link !text-sm">Home</a>
+                    <a href="{{ route('directory.index') }}" class="site-nav-link !text-sm">Find a facility</a>
                     <a href="{{ route('about') }}" class="site-nav-link !text-sm">About</a>
                     <a href="{{ route('contact') }}" class="site-nav-link !text-sm">Contact</a>
                     @guest

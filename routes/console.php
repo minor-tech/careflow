@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\ExpireRemoteRequests;
 use App\Jobs\RecalculateDepartmentAverages;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -13,5 +14,12 @@ Artisan::command('inspire', function () {
 Schedule::job(new RecalculateDepartmentAverages)
     ->name('recalculate-department-averages')
     ->dailyAt('01:00')
+    ->timezone(config('careflow.timezone'))
+    ->withoutOverlapping();
+
+// Requests only last for the day they are made: after midnight (clinic time), any still waiting for a decision are marked expired.
+Schedule::job(new ExpireRemoteRequests)
+    ->name('expire-remote-requests')
+    ->dailyAt('00:05')
     ->timezone(config('careflow.timezone'))
     ->withoutOverlapping();

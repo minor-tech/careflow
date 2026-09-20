@@ -326,4 +326,24 @@ class FacilityDailyStatsTest extends TestCase
         $this->assertSame(1, $summary['patients_today']);
         $this->assertSame(1, $summary['completed']);
     }
+
+    public function test_someone_accepted_from_home_is_timed_from_arriving_not_from_being_given_a_place(): void
+    {
+        $this->visitWith([
+            [0, VisitEventType::Registered, $this->consultation],
+            [80, VisitEventType::CheckedIn, $this->consultation],
+            [90, VisitEventType::Called, $this->consultation],
+            [91, VisitEventType::Started, $this->consultation],
+            [100, VisitEventType::Completed, $this->consultation],
+        ], attributes: ['status' => VisitStatus::Completed]);
+
+        $this->assertSame(10, $this->summary()['avg_wait_minutes'], 'Ten minutes waiting in the building, not ninety.');
+    }
+
+    public function test_a_walk_in_is_still_timed_from_registering(): void
+    {
+        $this->waited(25);
+
+        $this->assertSame(25, $this->summary()['avg_wait_minutes']);
+    }
 }
